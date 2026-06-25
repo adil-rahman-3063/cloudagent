@@ -30,7 +30,7 @@ CloudAgent is a privacy-focused, local-first AI assistant for Google Workspace (
 ### Prerequisites
 - Node.js (v18+)
 - SQLite3
-- Google Workspace CLI (`gws`): CloudAgent will automatically guide you through its installation if it's missing on your first run.
+- [Google Workspace CLI (gws)](https://github.com/googleworkspace/cli) (required for all Google integrations)
 
 ### Installation
 Clone this repository locally, link it globally, and install dependencies:
