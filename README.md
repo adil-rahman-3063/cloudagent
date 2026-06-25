@@ -2,6 +2,11 @@
 
 CloudAgent is a privacy-focused, local-first AI assistant for Google Workspace (Gmail, Drive, Calendar) and your local development environment. Built entirely in Node.js, it translates natural language instructions into secure, local tool executions.
 
+> [!IMPORTANT]  
+> **GWS Appreciation & Dependency:**  
+> CloudAgent relies entirely on the fantastic **Google Workspace CLI (`gws`)** tool for executing all Google service integrations (Gmail, Calendar, Drive). Huge appreciation to the `gws` project for enabling secure, command-line-driven workspace control.  
+> **Without `gws` installed and authenticated, CloudAgent functions only as an AI frontend for local terminal/filesystem operations and LLM queries.**
+
 ---
 
 ## Key Features
