@@ -1,4 +1,5 @@
-import { execFileSync } from 'child_process';
+import { execGws } from '../config.js';
+import { tryFormatCalendar } from '../formatter.js';
 
 export const calendarList = {
   name: 'calendar_list',
@@ -13,7 +14,7 @@ export const calendarList = {
   },
   risk: 'safe',
   async execute({ days, today, week }) {
-    const args = ['calendar', '+agenda'];
+    const args = ['calendar', '+agenda', '--format', 'json'];
     if (today) {
       args.push('--today');
     } else if (week) {
@@ -22,8 +23,8 @@ export const calendarList = {
       args.push('--days', String(days));
     }
     try {
-      const stdout = execFileSync('gws', args, { stdio: 'pipe' }).toString();
-      return { success: true, output: stdout };
+      const stdout = execGws(args).toString();
+      return { success: true, output: tryFormatCalendar(stdout) };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
     }
@@ -67,7 +68,7 @@ export const calendarCreate = {
       args.push('--meet');
     }
     try {
-      const stdout = execFileSync('gws', args, { stdio: 'pipe' }).toString();
+      const stdout = execGws(args).toString();
       return { success: true, output: stdout };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };

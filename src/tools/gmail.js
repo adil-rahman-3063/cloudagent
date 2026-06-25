@@ -1,4 +1,5 @@
-import { execFileSync } from 'child_process';
+import { execGws } from '../config.js';
+import { tryFormatGmail } from '../formatter.js';
 
 export const gmailList = {
   name: 'gmail_list',
@@ -12,13 +13,13 @@ export const gmailList = {
   },
   risk: 'safe',
   async execute({ query, max = 20 }) {
-    const args = ['gmail', '+triage', '--max', String(max)];
+    const args = ['gmail', '+triage', '--max', String(max), '--format', 'json'];
     if (query) {
       args.push('--query', query);
     }
     try {
-      const stdout = execFileSync('gws', args, { stdio: 'pipe' }).toString();
-      return { success: true, output: stdout };
+      const stdout = execGws(args).toString();
+      return { success: true, output: tryFormatGmail(stdout) };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
     }
@@ -43,7 +44,7 @@ export const gmailRead = {
       args.push('--headers');
     }
     try {
-      const stdout = execFileSync('gws', args, { stdio: 'pipe' }).toString();
+      const stdout = execGws(args).toString();
       return { success: true, output: stdout };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
@@ -67,7 +68,7 @@ export const gmailSend = {
   async execute({ to, subject, body }) {
     const args = ['gmail', '+send', '--to', to, '--subject', subject, '--body', body];
     try {
-      const stdout = execFileSync('gws', args, { stdio: 'pipe' }).toString();
+      const stdout = execGws(args).toString();
       return { success: true, output: stdout };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };

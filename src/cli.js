@@ -4,10 +4,10 @@ import chalk from 'chalk';
 import prompts from 'prompts';
 import ora from 'ora';
 import { runDiagnostics, ensureGwsInstalled } from './doctor.js';
-import { readConfig, writeConfig, setProviderKey, setWorkspaceAllowed } from './config.js';
-import { initDatabase, createSession, saveMessage, getSessionMessages } from './db.js';
+import { readConfig, writeConfig, setProviderKey, setWorkspaceAllowed, readModels } from './config.js';
+import { initDatabase, createSession, saveMessage, getSessionMessages, getLastSession } from './db.js';
 import { askAgent } from './agent.js';
-import { getToolsSchema, executeTool } from './tool-registry.js';
+import { getToolsSchema, executeTool, REGISTRY } from './tool-registry.js';
 import { PROVIDERS } from './providers/models.js';
 
 // Parse command line arguments
@@ -75,11 +75,54 @@ async function main() {
   }
 
   // Start session
-  const sessionId = 'session_' + Date.now();
-  createSession(sessionId);
+  const lastSession = getLastSession();
+  let sessionId = '';
+  
+  if (lastSession) {
+    console.log(chalk.cyan(`Found previous chat session: "${lastSession.name}"`));
+    const resumePrompt = await prompts({
+      type: 'select',
+      name: 'action',
+      message: 'Would you like to resume this session or start a new one?',
+      choices: [
+        { title: 'Resume previous session', value: 'resume' },
+        { title: 'Start a new session', value: 'new' }
+      ]
+    });
+    
+    if (resumePrompt.action === 'resume') {
+      sessionId = lastSession.id;
+      console.log(chalk.green(`Resumed session: ${lastSession.name}\n`));
+      
+      const messages = getSessionMessages(sessionId);
+      if (messages && messages.length > 0) {
+        console.log(chalk.dim('--- Last messages in this session ---'));
+        const lastThree = messages.slice(-3);
+        for (const msg of lastThree) {
+          const prefix = msg.role === 'user' ? chalk.green('cloudagent>') : chalk.bold('Agent:');
+          let displayContent = msg.content;
+          try {
+            const parsed = JSON.parse(msg.content);
+            if (parsed.tool) {
+              displayContent = `[Executed tool: ${parsed.tool}]`;
+            }
+          } catch (e) {
+            // plain text
+          }
+          console.log(chalk.dim(`${prefix} ${displayContent}`));
+        }
+        console.log(chalk.dim('-------------------------------------\n'));
+      }
+    }
+  }
 
-  console.log(chalk.dim('Type your prompt or "/exit" to quit, "/doctor" for diagnostics.'));
-  console.log(chalk.dim('Example: "List my 3 most recent emails" or "Check my git status"'));
+  if (!sessionId) {
+    sessionId = 'session_' + Date.now();
+    createSession(sessionId);
+  }
+
+  console.log(chalk.dim('Type your prompt or "/exit" to quit, "/doctor" for diagnostics, "/send" to send email directly.'));
+  console.log(chalk.dim('Example: "List my 3 most recent emails" or "/send email@example.com \'Subject\' \'Body\'"'));
   console.log('');
 
   // Start chat loop
@@ -104,16 +147,41 @@ async function main() {
       continue;
     }
 
-    // Save user message to DB
-    saveMessage(sessionId, 'user', prompt);
+    if (prompt.startsWith('/send')) {
+      const matches = prompt.match(/[^\s"']+|"([^"]*)"|'([^']*)'/g);
+      if (matches && matches.length >= 4) {
+        const to = matches[1].replace(/['"]/g, '');
+        const subject = matches[2].replace(/['"]/g, '');
+        const body = matches.slice(3).join(' ').replace(/['"]/g, '');
+        
+        console.log(chalk.cyan(`\n🛠️ Direct Email Send initiated...`));
+        const toolResult = await executeTool('gmail_send', { to, subject, body }, sessionId, false);
+        if (toolResult.success) {
+          console.log(chalk.green('\nEmail sent successfully!'));
+        } else {
+          console.log(chalk.red(`\nFailed to send email: ${toolResult.error}`));
+        }
+      } else {
+        console.log(chalk.yellow('\nUsage: /send <recipient> "<subject>" "<body>"'));
+        console.log(chalk.dim('Example: /send adilrahiman.123@gmail.com "Party tomorrow" "Are you coming?"'));
+      }
+      continue;
+    }
 
     // Call Agent
-    await runAgentStep(sessionId, prompt);
+    await runAgentStep(sessionId, prompt, { isSilent: false, spinner: null });
   }
 }
 
-async function runAgentStep(sessionId, userPrompt) {
-  const spinner = ora('CloudAgent thinking...').start();
+async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, spinner: null }) {
+  // Save message to database
+  saveMessage(sessionId, 'user', userPrompt);
+
+  if (!state.spinner) {
+    state.spinner = ora('CloudAgent thinking...').start();
+  } else {
+    state.spinner.text = 'CloudAgent thinking...';
+  }
   
   try {
     const history = getSessionMessages(sessionId);
@@ -121,49 +189,110 @@ async function runAgentStep(sessionId, userPrompt) {
 
     // Call LLM
     const response = await askAgent(history, tools);
-    spinner.stop();
 
-    if (response.thought) {
-      console.log(chalk.dim(`\n🧠 Thought: ${response.thought}`));
+    if (response.thought && !state.isSilent) {
+      const nextTool = response.tool ? REGISTRY[response.tool] : null;
+      const isNextToolSafe = nextTool && nextTool.risk === 'safe';
+      if (!isNextToolSafe) {
+        if (state.spinner) {
+          state.spinner.stop();
+          state.spinner = null;
+        }
+        console.log(chalk.dim(`\n🧠 Thought: ${response.thought}`));
+        state.spinner = ora('CloudAgent thinking...').start();
+      }
     }
 
     if (response.tool) {
-      console.log(chalk.cyan(`\n🛠️ AI triggered tool: ${chalk.bold(response.tool)}`));
-      
-      // Execute the tool
-      const toolResult = await executeTool(response.tool, response.arguments || {}, sessionId);
-      
-      if (toolResult.success) {
-        console.log(chalk.green(`\nOutput:`));
-        console.log(toolResult.output);
-        
-        // Log result into history for model context
-        saveMessage(sessionId, 'assistant', JSON.stringify({ 
-          status: 'success', 
-          tool: response.tool, 
-          output: toolResult.output 
-        }));
+      const tool = REGISTRY[response.tool];
+      const isSafe = tool && tool.risk === 'safe';
 
-        // Re-call agent with tool output so it can answer the user
-        await runAgentStep(sessionId, `Tool execution success for ${response.tool}.`);
+      if (isSafe) {
+        state.isSilent = true;
+        if (state.spinner) {
+          let toolDesc = `Running ${response.tool}...`;
+          if (response.tool.startsWith('gmail_')) {
+            toolDesc = 'Running gws (Gmail)...';
+          } else if (response.tool.startsWith('drive_')) {
+            toolDesc = 'Running gws (Drive)...';
+          } else if (response.tool.startsWith('calendar_')) {
+            toolDesc = 'Running gws (Calendar)...';
+          }
+          state.spinner.text = toolDesc;
+        }
+        const toolResult = await executeTool(response.tool, response.arguments || {}, sessionId, true);
+        
+        if (toolResult.success) {
+          saveMessage(sessionId, 'assistant', JSON.stringify({ 
+            status: 'success', 
+            tool: response.tool, 
+            output: toolResult.output 
+          }));
+
+          await runAgentStep(sessionId, `Tool execution success for ${response.tool}.`, state);
+        } else {
+          saveMessage(sessionId, 'assistant', JSON.stringify({ 
+            status: 'failed', 
+            tool: response.tool, 
+            error: toolResult.error 
+          }));
+          await runAgentStep(sessionId, `Tool execution failed for ${response.tool}: ${toolResult.error}`, state);
+        }
       } else {
-        console.log(chalk.red(`\nTool error: ${toolResult.error}`));
-        saveMessage(sessionId, 'assistant', JSON.stringify({ 
-          status: 'failed', 
-          tool: response.tool, 
-          error: toolResult.error 
-        }));
-        await runAgentStep(sessionId, `Tool execution failed for ${response.tool}: ${toolResult.error}`);
+        // Non-safe tool (confirm / high risk)
+        if (state.spinner) {
+          state.spinner.stop();
+          state.spinner = null;
+        }
+        state.isSilent = false;
+
+        console.log(chalk.cyan(`\n🛠️ AI triggered tool: ${chalk.bold(response.tool)}`));
+        
+        const toolResult = await executeTool(response.tool, response.arguments || {}, sessionId, false);
+        
+        if (toolResult.success) {
+          console.log(toolResult.output);
+          
+          saveMessage(sessionId, 'assistant', JSON.stringify({ 
+            status: 'success', 
+            tool: response.tool, 
+            output: toolResult.output 
+          }));
+
+          await runAgentStep(sessionId, `Tool execution success for ${response.tool}.`, state);
+        } else {
+          console.log(chalk.red(`\nTool error: ${toolResult.error}`));
+          saveMessage(sessionId, 'assistant', JSON.stringify({ 
+            status: 'failed', 
+            tool: response.tool, 
+            error: toolResult.error 
+          }));
+          await runAgentStep(sessionId, `Tool execution failed for ${response.tool}: ${toolResult.error}`, state);
+        }
       }
-    } else if (response.text) {
-      console.log(`\n🤖 ${chalk.bold('Agent:')} ${response.text}\n`);
-      saveMessage(sessionId, 'assistant', response.text);
+    } else if (response.text || response.thought) {
+      const finalMsg = response.text || response.thought;
+      if (state.spinner) {
+        state.spinner.stop();
+        state.spinner = null;
+      }
+      const outputText = typeof finalMsg === 'object' ? JSON.stringify(finalMsg, null, 2) : finalMsg;
+      console.log(`\n🤖 ${chalk.bold('Agent:')} ${outputText}\n`);
+      saveMessage(sessionId, 'assistant', outputText);
     } else {
+      if (state.spinner) {
+        state.spinner.stop();
+        state.spinner = null;
+      }
       console.log(chalk.red('\nReceived invalid or empty response format from AI.'));
+      console.log(chalk.dim(`Raw parsed response: ${JSON.stringify(response)}`));
     }
 
   } catch (error) {
-    spinner.stop();
+    if (state.spinner) {
+      state.spinner.stop();
+      state.spinner = null;
+    }
     console.error(chalk.red(`\nError: ${error.message}`));
   }
 }
@@ -196,17 +325,45 @@ async function handleConfigSubcommand() {
     });
 
     if (provChoice.provider) {
-      const modelChoice = await prompts({
-        type: 'text',
-        name: 'model',
-        message: `Enter model name (default: ${PROVIDERS[provChoice.provider].defaultModel}):`,
-        initial: PROVIDERS[provChoice.provider].defaultModel
-      });
+      let model = '';
+      if (provChoice.provider === 'openrouter') {
+        const availableModels = readModels();
+        const modelSelection = await prompts({
+          type: 'select',
+          name: 'model',
+          message: 'Select OpenRouter Model:',
+          choices: [
+            ...availableModels.map(m => ({ title: m, value: m })),
+            { title: 'Custom Model (write in)', value: '__custom__' }
+          ]
+        });
 
-      config.active_provider = provChoice.provider;
-      config.active_model = modelChoice.model;
-      writeConfig(config);
-      console.log(chalk.green(`\nActive provider set to ${provChoice.provider} (${modelChoice.model})`));
+        if (modelSelection.model === '__custom__') {
+          const customPrompt = await prompts({
+            type: 'text',
+            name: 'model',
+            message: 'Enter custom model name:'
+          });
+          model = customPrompt.model;
+        } else {
+          model = modelSelection.model;
+        }
+      } else {
+        const modelChoice = await prompts({
+          type: 'text',
+          name: 'model',
+          message: `Enter model name (default: ${PROVIDERS[provChoice.provider].defaultModel}):`,
+          initial: PROVIDERS[provChoice.provider].defaultModel
+        });
+        model = modelChoice.model;
+      }
+
+      if (model) {
+        config.active_provider = provChoice.provider;
+        config.active_model = model;
+        writeConfig(config);
+        console.log(chalk.green(`\nActive provider set to ${provChoice.provider} (${model})`));
+      }
     }
   } else if (action.value === 'key') {
     const provChoice = await prompts({

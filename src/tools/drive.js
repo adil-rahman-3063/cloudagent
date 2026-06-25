@@ -1,6 +1,6 @@
-import { execFileSync } from 'child_process';
 import path from 'path';
-import { workspaceAllowed } from '../config.js';
+import { workspaceAllowed, execGws } from '../config.js';
+import { tryFormatDrive } from '../formatter.js';
 
 function checkAllowed() {
   if (!workspaceAllowed) {
@@ -19,13 +19,13 @@ export const driveSearch = {
   },
   risk: 'safe',
   async execute({ query }) {
-    const args = ['drive', 'files', 'list'];
+    const args = ['drive', 'files', 'list', '--format', 'json'];
     if (query) {
       args.push('--query', query);
     }
     try {
-      const stdout = execFileSync('gws', args, { stdio: 'pipe' }).toString();
-      return { success: true, output: stdout };
+      const stdout = execGws(args).toString();
+      return { success: true, output: tryFormatDrive(stdout) };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
     }
@@ -51,7 +51,7 @@ export const driveDownload = {
       if (destination) {
         args.push('--destination', path.resolve(destination));
       }
-      const stdout = execFileSync('gws', args, { stdio: 'pipe' }).toString();
+      const stdout = execGws(args).toString();
       return { success: true, output: stdout };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
@@ -83,7 +83,7 @@ export const driveUpload = {
       if (parent) {
         args.push('--parent', parent);
       }
-      const stdout = execFileSync('gws', args, { stdio: 'pipe' }).toString();
+      const stdout = execGws(args).toString();
       return { success: true, output: stdout };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };

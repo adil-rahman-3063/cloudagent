@@ -106,6 +106,16 @@ export function setProviderKey(providerName, apiKey) {
   writeConfig(config);
 }
 
+import { execFileSync } from 'child_process';
+
+export function execGws(args, options = {}) {
+  if (process.platform === 'win32') {
+    return execFileSync('cmd.exe', ['/c', 'gws', ...args], { stdio: 'pipe', ...options });
+  } else {
+    return execFileSync('gws', args, { stdio: 'pipe', ...options });
+  }
+}
+
 export let workspaceAllowed = false;
 export function setWorkspaceAllowed(allowed) {
   workspaceAllowed = allowed;

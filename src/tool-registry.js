@@ -39,7 +39,7 @@ export function getToolsSchema() {
 }
 
 // Prompt and execute a tool
-export async function executeTool(toolName, args, sessionId) {
+export async function executeTool(toolName, args, sessionId, silent = false) {
   const tool = REGISTRY[toolName];
   if (!tool) {
     throw new Error(`Tool "${toolName}" not found in registry`);
@@ -50,29 +50,28 @@ export async function executeTool(toolName, args, sessionId) {
 
   let approved = true;
 
-  if (tool.risk === 'confirm') {
-    console.log(chalk.yellow(`\n🔔 CloudAgent wants to execute a state-changing tool:`));
-    console.log(`Tool: ${chalk.bold(toolName)}`);
-    console.log(`Arguments:\n${chalk.cyan(JSON.stringify(args, null, 2))}`);
+  if (tool.risk === 'confirm' || tool.risk === 'high') {
+    const isWarning = tool.risk === 'high';
+    if (isWarning) {
+      console.log(chalk.red.bold(`\n⚠️  WARNING: High-risk action requested!`));
+    } else {
+      console.log(chalk.yellow(`\n🔔 CloudAgent wants to execute a state-changing tool:`));
+    }
+
+    if (toolName === 'gmail_send') {
+      // Escape newlines for visual presentation
+      const cleanBody = String(args.body || '').replace(/\n/g, '\\n');
+      console.log(`Proposed Command: ${chalk.cyan(`/send ${args.to} "${args.subject}" "${cleanBody}"`)}`);
+    } else {
+      console.log(`Tool: ${chalk.bold(toolName)}`);
+      console.log(`Arguments:\n${chalk.cyan(JSON.stringify(args, null, 2))}`);
+    }
     
     const response = await prompts({
       type: 'confirm',
       name: 'value',
-      message: 'Approve execution?',
-      initial: true
-    });
-    
-    approved = response.value;
-  } else if (tool.risk === 'high') {
-    console.log(chalk.red.bold(`\n⚠️  WARNING: High-risk action requested!`));
-    console.log(`Tool: ${chalk.bold(toolName)}`);
-    console.log(`Arguments:\n${chalk.cyan(JSON.stringify(args, null, 2))}`);
-    
-    const response = await prompts({
-      type: 'confirm',
-      name: 'value',
-      message: chalk.red('Approve this high-risk action?'),
-      initial: false
+      message: isWarning ? chalk.red('Approve this high-risk action?') : 'Approve execution?',
+      initial: !isWarning
     });
     
     approved = response.value;
@@ -85,7 +84,9 @@ export async function executeTool(toolName, args, sessionId) {
 
   updateToolRun(runId, 'approved', 'Execution approved');
 
-  console.log(chalk.dim(`\n⚙️ Running ${toolName}...`));
+  if (!silent) {
+    console.log(chalk.dim(`\n⚙️ Running ${toolName}...`));
+  }
   const result = await tool.execute(args);
 
   if (result.success) {

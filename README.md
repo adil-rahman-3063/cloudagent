@@ -1,103 +1,67 @@
-# ☁️ CloudAgent
+# CloudAgent
 
-> **Your local AI agent for Google Workspace.**
-> Control Gmail, Drive, Calendar, Docs, and Git repos with natural language directly from your terminal.
-
----
-
-## 🚀 Overview
-
-**CloudAgent** is a local-first, privacy-focused terminal application that runs entirely on your own machine. It translates natural language requests into structured tool calls and executes them safely using command-line tools already installed on your system.
-
-To protect your system, CloudAgent:
-1. Maps AI intents to structured tool definitions (no raw LLM-generated shell commands are run).
-2. Follows a **multi-tiered permission system** (`safe`, `confirm`, `high` risk actions).
-3. Requires user confirmation (`Approve? [Y/n]`) for state-changing operations.
+CloudAgent is a privacy-focused, local-first AI assistant for Google Workspace (Gmail, Drive, Calendar) and your local development environment. Built entirely in Node.js, it translates natural language instructions into secure, local tool executions.
 
 ---
 
-## ✨ Features
+## Key Features
 
-- **🔒 Local-First & Privacy-Focused**: All credentials and data remain strictly local.
-- **🛡️ Sandbox Mapping & Multi-Tier Approvals**: 
-  - **SAFE** (e.g. `drive_search`, `git_status`): Direct execution.
-  - **CONFIRM** (e.g. `calendar_create`, `gmail_send`): Standard user confirmation prompt.
-  - **HIGH RISK** (e.g. `git_push`, `file_delete`): Prompts with highlighted warning.
-- **📂 Session Memory**: Keeps context (current repo, active directory, recent chats/files) under `~/.cloudagent/sessions/` and local SQLite storage.
-- **🔌 Provider Abstraction**: Switch between multiple model providers based on your available API keys:
-  - **OpenRouter** (Kimi K2, etc.)
-  - **OpenAI** (GPT-4o, etc.)
-  - **Gemini** (Gemini 1.5 Pro/Flash, etc.)
-  - **Anthropic** (Claude 3.5 Sonnet, etc.)
-- **☁️ Google Workspace Integration**: Controlled via the official [Google Workspace CLI (gws)](https://github.com/googleworkspace/cli).
-- **🩺 Diagnostics Suite**: Run checks using `cloudagent doctor` to troubleshoot your environment immediately.
+- **Local-First & Secure**: Translates user prompts into local API/system commands via a secure JSON structure, avoiding raw terminal execution risks.
+- **Google Workspace Integration**: Connects seamlessly with Gmail, Drive, and Calendar via Google's `gws` command-line utility.
+- **Clean & Concise Terminal Experience**: Automatically suppresses intermediate thought processes, raw tables, and verbose loading logs. Only the final formatted results are presented.
+- **Dynamic Status Spinner**: Provides a persistent, live loading indicator that updates with the active operation (e.g. `Running gws (Gmail)...`), keeping the console alive without clutter.
+- **Session Resumption**: Prompts you to resume your previous chat history on startup, ensuring you never lose your context.
+- **Multi-Model Fallbacks**: Automatically falls back through multiple free/paid LLM endpoints (via OpenRouter, OpenAI, Gemini, or Anthropic) if the active model encounters rate limits or service unavailability.
+- **15-Second Request Timeouts**: Restricts model calls to a maximum duration of 15 seconds. If a request hangs, it aborts instantly and switches to the next fallback model.
+- **Slash Commands**:
+  - `/send <recipient> "<subject>" "<body>"`: Direct email command bypasses LLM parsing for fast delivery.
+  - `/doctor`: Triggers doctor diagnostics to verify your node, git, and workspace credentials.
+  - `/exit`: Exits the shell loop.
 
 ---
 
-## 🛠️ Tech Stack
+## Getting Started & Setup
 
-- **Runtime**: Node.js (ES Modules)
-- **Database**: SQLite (`better-sqlite3`)
-- **Dependencies**: User-managed local CLI configurations (`gws auth login`, `gh auth login`).
+### Prerequisites
+- Node.js (v18+)
+- SQLite3
+- Google Workspace CLI (`gws`): CloudAgent will automatically guide you through its installation if it's missing on your first run.
 
----
+### Installation
+Clone this repository locally, link it globally, and install dependencies:
+```bash
+git clone https://github.com/adil-rahman-3063/cloudagent.git
+cd cloudagent
+npm install
+npm link
+```
 
-## 📁 Project Structure
+### Configuration
+1. **API Keys**: Configure your active LLM provider and API keys:
+   ```bash
+   cloudagent config
+   ```
+2. **Google Authentication**: Authenticate the Google Workspace CLI tool:
+   ```bash
+   gws auth login
+   ```
+3. **Health Check**: Run diagnostics to verify all paths are ready:
+   ```bash
+   cloudagent doctor
+   ```
 
-```text
-cloudagent/
-├── src/
-│   ├── cli.js                  # CLI interactive loop entrypoint
-│   ├── doctor.js               # Diagnostics CLI output runner
-│   ├── tool-registry.js        # Dynamic tool registry loader & orchestrator
-│   ├── db.js                   # better-sqlite3 interaction helper
-│   ├── config.js               # config.json load/save helper
-│   ├── providers/              # Abstracted AI Model provider interfaces
-│   │   ├── provider.js         # Base abstract class
-│   │   ├── openrouter.js       # OpenRouter implementation
-│   │   ├── openai.js           # OpenAI implementation
-│   │   ├── gemini.js           # Gemini implementation
-│   │   ├── anthropic.js        # Anthropic implementation
-│   │   └── models.js           # Model config configurations
-│   ├── tools/                  # Structured tool definitions (No terminal.js in MVP)
-│   │   ├── gmail.js
-│   │   ├── drive.js
-│   │   ├── calendar.js
-│   │   ├── git.js
-│   │   └── filesystem.js
-│   └── mcp/                    # Future MCP servers integration placeholder
-├── package.json
-└── README.md
+### Usage
+Start the interactive chat loop:
+```bash
+cloudagent
 ```
 
 ---
 
-## ⚙️ Getting Started
+## Production Readiness
 
-### Prerequisites
-
-1. **Node.js**: Ensure you have Node.js installed (v18+).
-2. **Google Workspace CLI (`gws`)**: Install `gws` and authenticate:
-   ```bash
-   gws auth login
-   ```
-3. **Git & GitHub CLI (`gh`)**: Ensure `git` and `gh` are installed and authenticated.
-
-### Installation
-
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Link the package globally:
-   ```bash
-   npm link
-   ```
-3. Verify your environment setup:
-   ```bash
-   cloudagent doctor
-   ```
-4. Start the agent:
-   ```bash
-   cloudagent
-   ```
+CloudAgent is ready for production environments:
+- **Strict Role Alternation**: Sanitizes conversation history before dispatching calls to provider endpoints, avoiding `400 Bad Request` schema validation errors.
+- **Robust Parameter Handling**: Intercepts model formatting errors (like returning parameters at the root level or using text/reply placeholder tools) and automatically normalizes them.
+- **Timeout & Retries**: All API fetch calls are signal-aborted after 15 seconds to ensure zero hangs.
+- **Local SQLite DB WAL Mode**: Chat session histories and tool execution logs are stored locally under `~/.cloudagent/history.db` using WAL mode for concurrent, fast database transactions.

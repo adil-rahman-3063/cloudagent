@@ -4,6 +4,7 @@ import { OpenAIClient } from './providers/openai.js';
 import { GeminiClient } from './providers/gemini.js';
 import { AnthropicClient } from './providers/anthropic.js';
 import { PROVIDERS } from './providers/models.js';
+import { REGISTRY } from './tool-registry.js';
 
 export function getActiveProvider() {
   const config = readConfig();
@@ -32,5 +33,50 @@ export function getActiveProvider() {
 
 export async function askAgent(chatHistory, tools) {
   const provider = getActiveProvider();
-  return await provider.generateToolCall(chatHistory, tools);
+  
+  // Sanitize history to ensure strict user/assistant role alternation
+  const sanitized = [];
+  for (const msg of chatHistory) {
+    if (sanitized.length > 0 && sanitized[sanitized.length - 1].role === msg.role) {
+      if (msg.role === 'assistant') {
+        sanitized.push({ role: 'user', content: 'Proceed.' });
+      } else {
+        sanitized.push({ role: 'assistant', content: 'Acknowledged.' });
+      }
+    }
+    sanitized.push(msg);
+  }
+
+  const response = await provider.generateToolCall(sanitized, tools);
+
+  // Normalize the response if the LLM gets confused and outputs tool: "text" / tool: "reply"
+  if (response && response.tool) {
+    const toolName = response.tool.toLowerCase();
+    if (toolName === 'text' || toolName === 'reply' || toolName === 'message' || toolName === 'none' || toolName === 'null') {
+      const textVal = response.text || response.arguments?.text || response.arguments?.message || response.arguments?.reply || '';
+      delete response.tool;
+      delete response.arguments;
+      response.text = textVal;
+    }
+  } else if (response && !response.tool && !response.text) {
+    // Check if the root level keys of the response satisfy the required arguments of any tool
+    for (const [toolName, tool] of Object.entries(REGISTRY)) {
+      const required = tool.schema?.required || [];
+      if (required.length > 0 && required.every(key => key in response)) {
+        const args = {};
+        for (const key of Object.keys(tool.schema.properties || {})) {
+          if (key in response) {
+            args[key] = response[key];
+            delete response[key];
+          }
+        }
+        response.tool = toolName;
+        response.arguments = args;
+        response.thought = response.thought || `Auto-detected parameters for ${toolName}`;
+        break;
+      }
+    }
+  }
+
+  return response;
 }

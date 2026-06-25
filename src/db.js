@@ -54,13 +54,24 @@ export function createSession(sessionId, name = 'New Chat') {
 export function saveMessage(sessionId, role, content) {
   const connection = initDatabase();
   const stmt = connection.prepare('INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)');
-  stmt.run(sessionId, role, content);
+  const serializedContent = typeof content === 'object' ? JSON.stringify(content) : String(content || '');
+  stmt.run(sessionId || '', role || '', serializedContent);
+  
+  // Update the session's updated_at timestamp
+  const updateStmt = connection.prepare('UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+  updateStmt.run(sessionId || '');
+}
+
+export function getLastSession() {
+  const connection = initDatabase();
+  const stmt = connection.prepare('SELECT id, name FROM sessions ORDER BY updated_at DESC LIMIT 1');
+  return stmt.get();
 }
 
 export function getSessionMessages(sessionId) {
   const connection = initDatabase();
   const stmt = connection.prepare('SELECT role, content, timestamp FROM messages WHERE session_id = ? ORDER BY id ASC');
-  return stmt.all(sessionId);
+  return stmt.all(sessionId || '');
 }
 
 export function logToolRun(sessionId, toolName, args, status, output = '') {
@@ -69,12 +80,18 @@ export function logToolRun(sessionId, toolName, args, status, output = '') {
     INSERT INTO tool_runs (session_id, tool_name, arguments, status, output)
     VALUES (?, ?, ?, ?, ?)
   `);
-  const info = stmt.run(sessionId, toolName, JSON.stringify(args), status, output);
+  const info = stmt.run(
+    sessionId || '',
+    toolName || '',
+    args ? JSON.stringify(args) : '{}',
+    status || '',
+    output !== undefined && output !== null ? String(output) : ''
+  );
   return info.lastInsertRowid;
 }
 
 export function updateToolRun(id, status, output) {
   const connection = initDatabase();
   const stmt = connection.prepare('UPDATE tool_runs SET status = ?, output = ? WHERE id = ?');
-  stmt.run(status, output, id);
+  stmt.run(status || '', output !== undefined && output !== null ? String(output) : '', id);
 }

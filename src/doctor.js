@@ -77,8 +77,22 @@ export async function verifyGws(log) {
     
     // Check authentication
     const gwsStatus = runCmd('gws auth status');
-    if (gwsStatus && gwsStatus.toLowerCase().includes('authenticated')) {
-      log(`  ${chalk.green('✓')} gws Authentication: Active`);
+    let authenticated = false;
+    let userEmail = '';
+    
+    if (gwsStatus) {
+      try {
+        const statusObj = JSON.parse(gwsStatus);
+        authenticated = statusObj && statusObj.token_valid === true;
+        userEmail = statusObj.user || '';
+      } catch (e) {
+        // Fallback to substring matching if JSON parsing fails
+        authenticated = gwsStatus.toLowerCase().includes('authenticated') || gwsStatus.toLowerCase().includes('token_valid": true');
+      }
+    }
+
+    if (authenticated) {
+      log(`  ${chalk.green('✓')} gws Authentication: Active${userEmail ? ` (${userEmail})` : ''}`);
       return true;
     } else {
       log(`  ${chalk.yellow('⚠')} gws Authentication: Not authenticated`);
