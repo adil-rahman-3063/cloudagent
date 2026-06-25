@@ -1,7 +1,12 @@
+import { readModels } from '../config.js';
+
 export const PROVIDERS = {
   openrouter: {
     name: 'OpenRouter',
-    defaultModel: 'moonshotai/kimi-k2',
+    get defaultModel() {
+      const list = readModels();
+      return list[0] || 'openai/gpt-oss-120b:free';
+    },
     endpoint: 'https://openrouter.ai/api/v1/chat/completions'
   },
   openai: {

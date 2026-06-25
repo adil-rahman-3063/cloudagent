@@ -4,8 +4,50 @@ import os from 'os';
 
 const CONFIG_DIR = path.join(os.homedir(), '.cloudagent');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+const MODELS_FILE = path.join(CONFIG_DIR, 'models.json');
 const SESSIONS_DIR = path.join(CONFIG_DIR, 'sessions');
 const LOGS_DIR = path.join(CONFIG_DIR, 'logs');
+
+const DEFAULT_MODELS = [
+  // Tier 1 — Best
+  "openai/gpt-oss-120b:free",
+  "nousresearch/hermes-3-llama-3.1-405b:free",
+  "moonshotai/kimi-k2.6:free",
+  "nvidia/nemotron-3-super-120b-a12b:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
+  
+  // Tier 2 — Good
+  "openai/gpt-oss-20b:free",
+  "qwen/qwen3-next-80b-a3b-instruct:free",
+  "google/gemma-4-31b-it:free",
+  "z-ai/glm-4.5-air:free",
+  "poolside/laguna-m.1:free",
+  "poolside/laguna-xs.2:free",
+  
+  // Tier 3 — Fallback
+  "nvidia/nemotron-3-nano-30b-a3b:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+  "nvidia/nemotron-nano-9b-v2:free",
+  "qwen/qwen3-coder:free",
+  
+  // Last resort
+  "openrouter/free"
+];
+
+export function readModels() {
+  initConfigDirs();
+  if (!fs.existsSync(MODELS_FILE)) {
+    fs.writeFileSync(MODELS_FILE, JSON.stringify(DEFAULT_MODELS, null, 2), 'utf8');
+    return DEFAULT_MODELS;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(MODELS_FILE, 'utf8'));
+  } catch (error) {
+    return DEFAULT_MODELS;
+  }
+}
+
 
 // Ensure system directories exist
 export function initConfigDirs() {
