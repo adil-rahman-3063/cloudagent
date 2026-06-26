@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import prompts from 'prompts';
 import ora from 'ora';
 import { runDiagnostics, ensureGwsInstalled } from './doctor.js';
-import { readConfig, writeConfig, setProviderKey, setWorkspaceAllowed, readModels } from './config.js';
+import { readConfig, writeConfig, setProviderKey, setWorkspaceAllowed, workspaceAllowed, readModels } from './config.js';
 import { initDatabase, createSession, saveMessage, getSessionMessages, getLastSession } from './db.js';
 import { askAgent } from './agent.js';
 import { getToolsSchema, executeTool, REGISTRY } from './tool-registry.js';
@@ -12,6 +12,62 @@ import { PROVIDERS } from './providers/models.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
+
+function displayHelp() {
+  console.log(chalk.bold.cyan('\n🛠️  CloudAgent Capabilities & Tools'));
+  console.log(chalk.dim('Here is what I can do to help you in your workspace:\n'));
+
+  // 1. Gmail
+  console.log(chalk.bold.magenta('📧 Gmail'));
+  console.log(`  - ${chalk.green('List emails')}: Search and list recent emails. (e.g., "List my unread emails")`);
+  console.log(`  - ${chalk.green('Read emails')}: View details of specific threads. (e.g., "Read the email about the project launch")`);
+  console.log(`  - ${chalk.green('Send emails')}: Compose and send new emails. (e.g., "Send email to bob@example.com asking for feedback")`);
+  console.log('');
+
+  // 2. Drive
+  console.log(chalk.bold.yellow('📂 Google Drive'));
+  console.log(`  - ${chalk.green('Search files')}: Query documents or folders. (e.g., "Find spreadsheets modified last week")`);
+  console.log(`  - ${chalk.green('Download files')}: Retrieve files to your local system. (e.g., "Download presentation.pdf")`);
+  console.log(`  - ${chalk.green('Upload files')}: Save local files to Google Drive. (e.g., "Upload report.csv")`);
+  console.log('');
+
+  // 3. Calendar
+  console.log(chalk.bold.blue('📅 Google Calendar'));
+  console.log(`  - ${chalk.green('List events')}: Retrieve scheduled meetings. (e.g., "Show me my meetings tomorrow")`);
+  console.log(`  - ${chalk.green('Create events')}: Schedule new calendar meetings. (e.g., "Schedule a call with Sarah next Monday at 2pm")`);
+  console.log('');
+
+  // 4. Tasks
+  console.log(chalk.bold.hex('#FF8C00')('🧡 Google Tasks'));
+  console.log(`  - ${chalk.green('List tasks')}: View tasks on your Google lists. (e.g., "What tasks do I have remaining?")`);
+  console.log(`  - ${chalk.green('Create tasks')}: Add new tasks or to-do items. (e.g., "Add a task to buy groceries tomorrow")`);
+  console.log('');
+
+  // 5. Git
+  console.log(chalk.bold.cyan('🌿 Git & GitHub'));
+  console.log(`  - ${chalk.green('Status check')}: Check current git status. (e.g., "Show git status")`);
+  console.log(`  - ${chalk.green('Commit changes')}: Stage and commit local modifications. (e.g., "Commit current changes with message 'Update CLI'")`);
+  console.log(`  - ${chalk.green('Push/Pull code')}: Synchronize code with remote repositories. (e.g., "Pull the latest updates from git")`);
+  console.log(`  - ${chalk.green('Create repository')}: Initialize and upload to a new GitHub repo. (e.g., "Create a GitHub repository for this project")`);
+  console.log('');
+
+  // 6. Filesystem
+  const fsStatus = workspaceAllowed ? '' : chalk.red(' [DISABLED - Access Restricted]');
+  console.log(chalk.bold.green('💻 Local Filesystem') + fsStatus);
+  console.log(`  - ${chalk.green('List files')}: Inspect directory structures. (e.g., "List files in the current folder")`);
+  console.log(`  - ${chalk.green('Read files')}: View the contents of local files. (e.g., "Read the content of package.json")`);
+  console.log(`  - ${chalk.green('Write files')}: Create or modify local files. (e.g., "Write a simple script to test this endpoint")`);
+  console.log(`  - ${chalk.green('Delete files')}: Remove local files securely. (e.g., "Delete the temp.json file")`);
+  console.log('');
+
+  // 7. Direct commands
+  console.log(chalk.bold.white('⚡ Direct Commands'));
+  console.log(`  - ${chalk.cyan('/help')} or ${chalk.cyan('what can i do')}: Print this capabilities screen.`);
+  console.log(`  - ${chalk.cyan('/doctor')}: Run environment diagnostic checks.`);
+  console.log(`  - ${chalk.cyan('/send')}: Directly send an email without LLM parsing (e.g., \`/send email@example.com "subject" "body"\`).`);
+  console.log(`  - ${chalk.cyan('/exit')}: Safely terminate the CLI loop.`);
+  console.log('');
+}
 
 async function main() {
   // Ensure DB and directories are configured
@@ -121,7 +177,7 @@ async function main() {
     createSession(sessionId);
   }
 
-  console.log(chalk.dim('Type your prompt or "/exit" to quit, "/doctor" for diagnostics, "/send" to send email directly.'));
+  console.log(chalk.dim('Type your prompt, "what can i do" / "/help" for capabilities, "/doctor" for diagnostics, "/exit" to quit.'));
   console.log(chalk.dim('Example: "List my 3 most recent emails" or "/send email@example.com \'Subject\' \'Body\'"'));
   console.log('');
 
@@ -144,6 +200,11 @@ async function main() {
 
     if (prompt === '/doctor') {
       await runDiagnostics();
+      continue;
+    }
+
+    if (prompt === '/help' || prompt === 'help' || prompt.toLowerCase() === 'what can i do' || prompt.toLowerCase() === 'what can you do') {
+      displayHelp();
       continue;
     }
 
@@ -217,6 +278,8 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
             toolDesc = 'Running gws (Drive)...';
           } else if (response.tool.startsWith('calendar_')) {
             toolDesc = 'Running gws (Calendar)...';
+          } else if (response.tool.startsWith('tasks_')) {
+            toolDesc = 'Running gws (Tasks)...';
           }
           state.spinner.text = toolDesc;
         }

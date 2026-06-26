@@ -96,3 +96,20 @@ export function tryFormatCalendar(stdout) {
     return stdout;
   }
 }
+
+export function tryFormatTasks(stdout) {
+  try {
+    const data = JSON.parse(stdout);
+    const items = data.items || [];
+    const headers = ['Due Date', 'Title', 'Status', 'ID'];
+    const rows = items.map(t => [
+      truncate(t.due ? t.due.split('T')[0] : 'No Due Date', 15),
+      truncate(t.title, 40),
+      truncate(t.status, 15),
+      t.id || ''
+    ]);
+    return formatBoxedTable('Google Tasks List', headers, rows);
+  } catch (e) {
+    return stdout;
+  }
+}

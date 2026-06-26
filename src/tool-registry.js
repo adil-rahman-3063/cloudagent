@@ -5,6 +5,7 @@ import { driveSearch, driveDownload, driveUpload } from './tools/drive.js';
 import { calendarList, calendarCreate } from './tools/calendar.js';
 import { gitStatus, gitPull, gitCommit, gitPush, githubRepoCreate } from './tools/git.js';
 import { fileList, fileRead, fileWrite, fileDelete } from './tools/filesystem.js';
+import { tasksList, tasksCreate } from './tools/tasks.js';
 import { logToolRun, updateToolRun } from './db.js';
 
 // Registry holding all tools
@@ -25,7 +26,9 @@ export const REGISTRY = {
   file_list: fileList,
   file_read: fileRead,
   file_write: fileWrite,
-  file_delete: fileDelete
+  file_delete: fileDelete,
+  tasks_list: tasksList,
+  tasks_create: tasksCreate
 };
 
 // Returns schemas for the AI prompt
