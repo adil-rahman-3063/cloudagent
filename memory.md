@@ -29,13 +29,15 @@ This document outlines key technical decisions, implementations, and setup detai
      - `calendar.js`: `calendar_list`, `calendar_create`
      - `drive.js`: `drive_search`, `drive_download`
      - `gmail.js`: `gmail_list`, `gmail_send`
+     - `tasks.js`: `tasks_list`, `tasks_create`
      - `git.js`: `git_status`, `git_pull`, `git_commit`, `git_push`, `github_repo_create`
      - `filesystem.js`: `file_list`, `file_read`, `file_write`, `file_delete`
 
 6. **Terminal UI Experience**:
    - Clean, lightweight console outputs. Suppresses thoughts and raw intermediate tables.
-   - Live loading status spinner indicating specific active API actions (e.g. `Running gws (Gmail)...`).
+   - Live loading status spinner indicating specific active API actions (e.g. `Running gws (Gmail)...`, `Running gws (Tasks)...`).
    - Context resumption: prompts the user on startup to load their prior active chat session.
+   - Built-in capabilities menu: triggers on `/help`, `help`, `what can i do`, or `what can you do` to output a clean, formatted overview of supported integrations.
 
 ---
 
