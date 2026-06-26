@@ -16,9 +16,9 @@ This file tracks the testing status of all CloudAgent capabilities.
   - [x] Dynamic tool name normalization (`google_tasks_list` -> `tasks_list`).
   - [ ] Update and complete tasks (`tasks_update`).
 
-- [ ] **Google Calendar**
-  - [ ] List agenda and upcoming schedule events.
-  - [ ] Create calendar events with summaries, times, and Meet links.
+- [x] **Google Calendar**
+  - [x] List agenda and upcoming schedule events.
+  - [x] Create calendar events with summaries, times, and Meet links.
 
 - [ ] **Google Drive**
   - [ ] Search files and directories by query parameters.
@@ -34,7 +34,7 @@ This file tracks the testing status of all CloudAgent capabilities.
   - [x] Workspace access approval check on startup.
   - [x] Restricted mode handling (when workspace permission is denied).
   - [x] Change directory and navigate folders (`file_cd`).
-  - [ ] List files in current directory.
+  - [x] List files in current directory.
   - [ ] Read local file contents.
   - [ ] Create/Write to local files.
   - [ ] Delete local files.
