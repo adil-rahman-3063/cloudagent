@@ -43,6 +43,7 @@ This file tracks the testing status of all CloudAgent capabilities.
   - [x] Committing code changes.
   - [x] Remote origin linking.
   - [x] Pushing commits to GitHub.
+  - [x] Git commands (e.g. `git_status`, `git_pull`) triggered via natural language prompts.
 
 - [ ] **Future Roadmap (Additional gws Services)**
   - [ ] **Google Sheets**: Read, write, and append spreadsheet tables.
