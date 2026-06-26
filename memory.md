@@ -40,6 +40,7 @@ This document outlines key technical decisions, implementations, and setup detai
    - Live loading status spinner indicating specific active API actions (e.g. `Running gws (Gmail)...`, `Running gws (Tasks)...`).
    - Context resumption: prompts the user on startup to load their prior active chat session.
    - Built-in capabilities menu: triggers on `/help`, `help`, `what can i do`, or `what can you do` to output a clean, formatted overview of supported integrations.
+   - **Interactive Email Dispatcher**: Intercepts `/send` (without arguments) or conversational email requests to prompt the user to choose between "Manual" (prompting details one-by-one) or "AI" (drafting based on a described topic).
 
 ---
 
