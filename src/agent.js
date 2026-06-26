@@ -62,6 +62,28 @@ export async function askAgent(chatHistory, tools) {
     } else if (toolName === 'google_tasks_create' || toolName === 'google_task_create' || toolName === 'task_create') {
       response.tool = 'tasks_create';
     }
+  }
+
+  // Intercept and prevent gmail_send with empty or missing subjects or bodies
+  if (response && response.tool === 'gmail_send') {
+    const args = response.arguments || {};
+    const to = (args.to || '').trim();
+    const subject = (args.subject || '').trim();
+    const body = (args.body || '').trim();
+
+    if (!to || !subject || !body) {
+      delete response.tool;
+      delete response.arguments;
+      if (!to) {
+        response.text = "Please provide the recipient's email address to send the email.";
+      } else if (!subject && !body) {
+        response.text = `I'm ready to send the email to ${to}, but I need the subject and the body of the message. Could you please provide those?`;
+      } else if (!subject) {
+        response.text = `I have the recipient (${to}) and body, but I still need a subject line. What should the subject be?`;
+      } else {
+        response.text = `I have the recipient (${to}) and subject ("${subject}"), but the body of the message is empty. What would you like to say?`;
+      }
+    }
   } else if (response && !response.tool && !response.text) {
     // Check if the root level keys of the response satisfy the required arguments of any tool
     for (const [toolName, tool] of Object.entries(REGISTRY)) {
