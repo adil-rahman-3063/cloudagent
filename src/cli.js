@@ -70,6 +70,53 @@ function displayHelp() {
   console.log('');
 }
 
+function parseCommandArgs(input) {
+  const args = [];
+  let current = '';
+  let inDoubleQuote = false;
+  let inSingleQuote = false;
+  
+  const cmdText = input.trim();
+  
+  for (let i = 0; i < cmdText.length; i++) {
+    const char = cmdText[i];
+    
+    if (char === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+    
+    if (char === "'" && !inDoubleQuote) {
+      const prevChar = i > 0 ? cmdText[i - 1] : '';
+      const nextChar = i < cmdText.length - 1 ? cmdText[i + 1] : '';
+      const isApostrophe = prevChar && /[a-zA-Z]/.test(prevChar) && nextChar && /[a-zA-Z]/.test(nextChar);
+      
+      if (isApostrophe) {
+        current += char;
+      } else {
+        inSingleQuote = !inSingleQuote;
+      }
+      continue;
+    }
+    
+    if (char === ' ' && !inDoubleQuote && !inSingleQuote) {
+      if (current.length > 0) {
+        args.push(current);
+        current = '';
+      }
+      continue;
+    }
+    
+    current += char;
+  }
+  
+  if (current.length > 0) {
+    args.push(current);
+  }
+  
+  return args;
+}
+
 async function main() {
   // Ensure DB and directories are configured
   initDatabase();
@@ -215,11 +262,11 @@ async function main() {
       /^email$/i.test(prompt);
 
     if (isSendEmailPrompt) {
-      const matches = prompt.match(/[^\s"']+|"([^"]*)"|'([^']*)'/g);
-      if (prompt.startsWith('/send') && matches && matches.length >= 4) {
-        const to = matches[1].replace(/['"]/g, '');
-        const subject = matches[2].replace(/['"]/g, '');
-        const body = matches.slice(3).join(' ').replace(/['"]/g, '');
+      const parsedArgs = parseCommandArgs(prompt);
+      if (prompt.startsWith('/send') && parsedArgs.length >= 4) {
+        const to = parsedArgs[1];
+        const subject = parsedArgs[2];
+        const body = parsedArgs.slice(3).join(' ');
         
         console.log(chalk.cyan(`\n🛠️ Direct Email Send initiated...`));
         const toolResult = await executeTool('gmail_send', { to, subject, body }, sessionId, false);
