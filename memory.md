@@ -42,6 +42,7 @@ This document outlines key technical decisions, implementations, and setup detai
    - Built-in capabilities menu: triggers on `/help`, `help`, `what can i do`, or `what can you do` to output a clean, formatted overview of supported integrations.
    - **Interactive Email Dispatcher**: Intercepts `/send` (without arguments) or conversational email requests to prompt the user to choose between "Manual" (prompting details one-by-one) or "AI" (drafting based on a described topic).
    - **Robust Command Parsing**: Utilizes `parseCommandArgs` in the CLI rather than a naive regex split, ensuring single-quote apostrophes (e.g. `you're`, `there's`) inside double-quoted string parameters do not cause argument truncation.
+   - **Windows Direct Execution**: Avoids `cmd.exe /c` wrapping for `gws` on Windows by dynamically locating the absolute path of the global `@googleworkspace/cli/run.js` module and invoking it directly with `node`. This prevents `cmd.exe` from truncating multiline strings (like emails with newlines) at the first newline character.
 
 ---
 
