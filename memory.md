@@ -25,6 +25,7 @@ This document outlines key technical decisions, implementations, and setup detai
    - Chat context sanitization runs prior to request dispatch to ensure strict `user` and `assistant` role alternation (preventing `400 Bad Request` schema validation failures).
    - **Context retention**: Proposed tool call payloads (arguments, thoughts, tool name) are explicitly saved in the message history before tool execution, ensuring follow-up prompts do not cause the model to lose context of drafts (e.g., subject and email body drafts).
    - **API parameter validation**: Programmatically intercepts and blocks `gmail_send` tool calls if `subject` or `body` are empty/only whitespace, converting them back into user-friendly text responses prompting for the missing inputs.
+   - **Dynamic Time Context**: Automatically injects a system context message containing the host system's actual date and time (`new Date()`) at the start of the chat history before every LLM request. This ensures the model does not rely on static example dates (like June 25) or training cutoffs to evaluate relative terms like "today" or "tomorrow".
 
 5. **Restricted System Tools**:
    - Local tools are configured under `src/tools/` using `execFileSync` to avoid unsafe raw terminal command injections:
