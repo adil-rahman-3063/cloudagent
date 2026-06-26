@@ -113,3 +113,21 @@ export function tryFormatTasks(stdout) {
     return stdout;
   }
 }
+
+export function tryFormatSuccess(toolName, stdout) {
+  try {
+    const resObj = JSON.parse(stdout);
+    if (toolName === 'gmail_send' && resObj.id) {
+      return chalk.green(`\n✓ Email sent successfully! (ID: ${resObj.id})`);
+    }
+    if (toolName === 'calendar_create' && resObj.id) {
+      return chalk.green(`\n✓ Calendar event created successfully! (ID: ${resObj.id})`);
+    }
+    if (toolName === 'tasks_create' && resObj.id) {
+      return chalk.green(`\n✓ Task created successfully! (ID: ${resObj.id})`);
+    }
+    return stdout;
+  } catch (e) {
+    return stdout;
+  }
+}

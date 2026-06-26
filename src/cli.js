@@ -9,6 +9,7 @@ import { initDatabase, createSession, saveMessage, getSessionMessages, getLastSe
 import { askAgent } from './agent.js';
 import { getToolsSchema, executeTool, REGISTRY } from './tool-registry.js';
 import { PROVIDERS } from './providers/models.js';
+import { tryFormatSuccess } from './formatter.js';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -386,7 +387,7 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
         const toolResult = await executeTool(response.tool, response.arguments || {}, sessionId, false);
         
         if (toolResult.success) {
-          console.log(toolResult.output);
+          console.log(tryFormatSuccess(response.tool, toolResult.output));
           
           saveMessage(sessionId, 'assistant', JSON.stringify({ 
             status: 'success', 
