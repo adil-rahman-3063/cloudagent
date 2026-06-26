@@ -43,3 +43,10 @@ This file tracks the testing status of all CloudAgent capabilities.
   - [x] Committing code changes.
   - [x] Remote origin linking.
   - [x] Pushing commits to GitHub.
+
+- [ ] **Future Roadmap (Additional gws Services)**
+  - [ ] **Google Sheets**: Read, write, and append spreadsheet tables.
+  - [ ] **Google Keep**: Manage and sync Keep notes.
+  - [ ] **Google Docs**: Read and write Google Document files.
+  - [ ] **Google People**: Retrieve and search contacts.
+
