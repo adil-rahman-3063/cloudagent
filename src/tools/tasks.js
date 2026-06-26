@@ -78,3 +78,48 @@ export const tasksCreate = {
     }
   }
 };
+
+export const tasksUpdate = {
+  name: 'tasks_update',
+  description: 'Update an existing Google Task (e.g., mark as completed, rename, change due date)',
+  schema: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', description: 'The unique ID of the task to update' },
+      tasklist: { type: 'string', description: 'Tasklist ID (defaults to "@default")' },
+      status: { type: 'string', description: 'Status of the task ("completed" or "needsAction")' },
+      title: { type: 'string', description: 'Updated title or summary of the task' },
+      notes: { type: 'string', description: 'Updated detailed notes/description' },
+      due: { type: 'string', description: 'Updated due date (RFC3339 format, e.g. 2026-06-28T00:00:00Z)' }
+    },
+    required: ['id']
+  },
+  risk: 'confirm',
+  async execute({ id, tasklist, status, title, notes, due }) {
+    const listId = tasklist || '@default';
+    const body = { id };
+    if (status) body.status = status;
+    if (title) body.title = title;
+    if (notes) body.notes = notes;
+    if (due) body.due = due;
+
+    const args = [
+      'tasks',
+      'tasks',
+      'update',
+      '--params',
+      JSON.stringify({ tasklist: listId, task: id }),
+      '--json',
+      JSON.stringify(body),
+      '--format',
+      'json'
+    ];
+
+    try {
+      const stdout = execGws(args).toString();
+      return { success: true, output: stdout };
+    } catch (error) {
+      return { success: false, error: error.stderr?.toString() || error.message };
+    }
+  }
+};

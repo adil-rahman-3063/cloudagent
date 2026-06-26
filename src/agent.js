@@ -61,6 +61,8 @@ export async function askAgent(chatHistory, tools) {
       response.tool = 'tasks_list';
     } else if (toolName === 'google_tasks_create' || toolName === 'google_task_create' || toolName === 'task_create') {
       response.tool = 'tasks_create';
+    } else if (toolName === 'google_tasks_update' || toolName === 'google_task_update' || toolName === 'task_update' || toolName === 'google_tasks_complete' || toolName === 'tasks_complete') {
+      response.tool = 'tasks_update';
     }
   }
 
