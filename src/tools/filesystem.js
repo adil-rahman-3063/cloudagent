@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { workspaceAllowed } from '../config.js';
 
 function checkAllowed() {
@@ -128,6 +129,84 @@ export const fileCd = {
       }
       process.chdir(resolvedPath);
       return { success: true, output: `Changed working directory to: ${process.cwd()}` };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+};
+
+export const fileFindProjects = {
+  name: 'file_find_projects',
+  description: 'Locate the parent directory containing all project folders/repositories (such as "projects", "src", "workspace", "repos", or the parent of the current project) and list all projects found inside. Use this when the user asks to see their projects, navigate their project folder, or list their workspaces.',
+  schema: {
+    type: 'object',
+    properties: {
+      customPath: { type: 'string', description: 'Optional custom path to the projects directory if specified by the user' }
+    }
+  },
+  risk: 'safe',
+  async execute({ customPath }) {
+    try {
+      checkAllowed();
+      
+      let projectsDir = null;
+      if (customPath) {
+        const resolved = path.resolve(customPath);
+        if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+          projectsDir = resolved;
+        }
+      }
+
+      if (!projectsDir) {
+        // Try common paths
+        const pathsToTry = [
+          path.resolve(process.cwd(), '..'), // Parent of current project
+          path.join(os.homedir(), 'Documents', 'projects'),
+          path.join(os.homedir(), 'projects'),
+          path.join(os.homedir(), 'workspace'),
+          path.join(os.homedir(), 'repos'),
+          path.join(os.homedir(), 'src'),
+          path.join(os.homedir(), 'Developer'),
+          path.join(os.homedir(), 'code')
+        ];
+
+        for (const p of pathsToTry) {
+          if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
+            const base = path.basename(p).toLowerCase();
+            const isCommonName = ['projects', 'src', 'workspace', 'repos', 'developer', 'code'].includes(base);
+            const isParentDir = p === path.resolve(process.cwd(), '..');
+            if (isCommonName || isParentDir) {
+              projectsDir = p;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!projectsDir) {
+        return { 
+          success: false, 
+          error: 'Could not automatically find your projects folder. Please specify the path to your projects directory (e.g., using a custom path).' 
+        };
+      }
+
+      const files = fs.readdirSync(projectsDir);
+      const projectFolders = files.filter(file => {
+        const fullPath = path.join(projectsDir, file);
+        try {
+          return fs.statSync(fullPath).isDirectory() && !file.startsWith('.') && file !== 'node_modules';
+        } catch (e) {
+          return false;
+        }
+      });
+
+      return {
+        success: true,
+        output: JSON.stringify({
+          projectsDirectory: projectsDir,
+          projects: projectFolders
+        }, null, 2)
+      };
     } catch (error) {
       return { success: false, error: error.message };
     }

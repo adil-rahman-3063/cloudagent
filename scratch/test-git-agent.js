@@ -21,6 +21,7 @@ async function runAgentStepSimulated(sessionId, userPrompt) {
   try {
     // Ask the agent
     const response = await askAgent(history, tools);
+    console.log('Raw Agent Response:', JSON.stringify(response, null, 2));
     console.log('Agent Thought:', response.thought);
     
     if (response.tool) {
@@ -37,7 +38,7 @@ async function runAgentStepSimulated(sessionId, userPrompt) {
 }
 
 async function test() {
-  await runAgentStepSimulated(sessionId, 'check my git status');
+  await runAgentStepSimulated(sessionId, 'list all the things in my project folder');
 }
 
 test();

@@ -74,6 +74,8 @@ export async function askAgent(chatHistory, tools) {
       response.tool = 'tasks_update';
     } else if (toolName === 'change_directory' || toolName === 'change_dir' || toolName === 'cd') {
       response.tool = 'file_cd';
+    } else if (toolName === 'find_projects' || toolName === 'list_projects' || toolName === 'get_projects') {
+      response.tool = 'file_find_projects';
     }
   }
 
