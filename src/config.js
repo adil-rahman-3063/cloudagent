@@ -108,7 +108,30 @@ export function setProviderKey(providerName, apiKey) {
 
 import { execFileSync } from 'child_process';
 
+let cachedGwsJsPath = null;
+let searchedGws = false;
+
+function getGwsJsPath() {
+  if (searchedGws) return cachedGwsJsPath;
+  searchedGws = true;
+  try {
+    const npmRoot = execFileSync(process.platform === 'win32' ? 'cmd.exe' : 'npm', process.platform === 'win32' ? ['/c', 'npm', 'root', '-g'] : ['root', '-g']).toString().trim();
+    const gwsPath = path.join(npmRoot, '@googleworkspace/cli/run.js');
+    if (fs.existsSync(gwsPath)) {
+      cachedGwsJsPath = gwsPath;
+    }
+  } catch (e) {
+    // fallback
+  }
+  return cachedGwsJsPath;
+}
+
 export function execGws(args, options = {}) {
+  const gwsJs = getGwsJsPath();
+  if (gwsJs) {
+    return execFileSync('node', [gwsJs, ...args], { stdio: 'pipe', ...options });
+  }
+
   if (process.platform === 'win32') {
     return execFileSync('cmd.exe', ['/c', 'gws', ...args], { stdio: 'pipe', ...options });
   } else {
