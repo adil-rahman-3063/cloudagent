@@ -31,8 +31,9 @@ This file tracks the testing status of all CloudAgent capabilities.
   - [x] SQLite database schema initialization and chat session logging.
 
 - [ ] **Local Filesystem**
-  - [ ] Workspace access approval check on startup.
-  - [ ] Restricted mode handling (when workspace permission is denied).
+  - [x] Workspace access approval check on startup.
+  - [x] Restricted mode handling (when workspace permission is denied).
+  - [x] Change directory and navigate folders (`file_cd`).
   - [ ] List files in current directory.
   - [ ] Read local file contents.
   - [ ] Create/Write to local files.

@@ -33,7 +33,7 @@ This document outlines key technical decisions, implementations, and setup detai
      - `gmail.js`: `gmail_list`, `gmail_send`
      - `tasks.js`: `tasks_list`, `tasks_create`
      - `git.js`: `git_status`, `git_pull`, `git_commit`, `git_push`, `github_repo_create`
-     - `filesystem.js`: `file_list`, `file_read`, `file_write`, `file_delete`
+     - `filesystem.js`: `file_list`, `file_read`, `file_write`, `file_delete`, `file_cd`
 
 6. **Terminal UI Experience**:
    - Clean, lightweight console outputs. Suppresses thoughts and raw intermediate tables.
