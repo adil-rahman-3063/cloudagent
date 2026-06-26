@@ -57,6 +57,10 @@ export async function askAgent(chatHistory, tools) {
       delete response.tool;
       delete response.arguments;
       response.text = textVal;
+    } else if (toolName === 'google_tasks_list' || toolName === 'google_task_list' || toolName === 'task_list') {
+      response.tool = 'tasks_list';
+    } else if (toolName === 'google_tasks_create' || toolName === 'google_task_create' || toolName === 'task_create') {
+      response.tool = 'tasks_create';
     }
   } else if (response && !response.tool && !response.text) {
     // Check if the root level keys of the response satisfy the required arguments of any tool
