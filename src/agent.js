@@ -34,9 +34,18 @@ export function getActiveProvider() {
 export async function askAgent(chatHistory, tools) {
   const provider = getActiveProvider();
   
+  // Inject current date/time context at the start of history
+  const now = new Date();
+  const timeContextMsg = {
+    role: 'user',
+    content: `[System Context: The current local date and time is ${now.toDateString()} ${now.toTimeString()}. Use this current date/time to determine relative date references like "today", "tomorrow", "yesterday", or "next week".]`
+  };
+  
+  const historyWithTime = [timeContextMsg, ...chatHistory];
+  
   // Sanitize history to ensure strict user/assistant role alternation
   const sanitized = [];
-  for (const msg of chatHistory) {
+  for (const msg of historyWithTime) {
     if (sanitized.length > 0 && sanitized[sanitized.length - 1].role === msg.role) {
       if (msg.role === 'assistant') {
         sanitized.push({ role: 'user', content: 'Proceed.' });
