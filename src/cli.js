@@ -208,9 +208,14 @@ async function main() {
       continue;
     }
 
-    if (prompt.startsWith('/send')) {
+    const isSendEmailPrompt = 
+      prompt.startsWith('/send') || 
+      /^(lets\s+)?send\s+(an\s+)?email$/i.test(prompt) ||
+      /^email$/i.test(prompt);
+
+    if (isSendEmailPrompt) {
       const matches = prompt.match(/[^\s"']+|"([^"]*)"|'([^']*)'/g);
-      if (matches && matches.length >= 4) {
+      if (prompt.startsWith('/send') && matches && matches.length >= 4) {
         const to = matches[1].replace(/['"]/g, '');
         const subject = matches[2].replace(/['"]/g, '');
         const body = matches.slice(3).join(' ').replace(/['"]/g, '');
@@ -222,9 +227,69 @@ async function main() {
         } else {
           console.log(chalk.red(`\nFailed to send email: ${toolResult.error}`));
         }
+        continue;
+      }
+
+      console.log(chalk.bold.cyan('\n📧 Email Dispatch Options'));
+      const choice = await prompts({
+        type: 'select',
+        name: 'mode',
+        message: 'How would you like to draft this email?',
+        choices: [
+          { title: '✍️ Manual (Enter details one-by-one)', value: 'manual' },
+          { title: '🤖 AI (Draft automatically from description)', value: 'ai' }
+        ]
+      });
+
+      if (!choice.mode) continue;
+
+      if (choice.mode === 'manual') {
+        console.log(chalk.dim('\nEnter email details:'));
+        const details = await prompts([
+          {
+            type: 'text',
+            name: 'to',
+            message: 'Recipient Email:',
+            validate: val => val.trim().length > 0 || 'Recipient is required.'
+          },
+          {
+            type: 'text',
+            name: 'subject',
+            message: 'Subject Line:',
+            validate: val => val.trim().length > 0 || 'Subject is required.'
+          },
+          {
+            type: 'text',
+            name: 'body',
+            message: 'Email Body:',
+            validate: val => val.trim().length > 0 || 'Body is required.'
+          }
+        ]);
+
+        if (details.to && details.subject && details.body) {
+          console.log(chalk.cyan(`\n🛠️ Sending email...`));
+          const toolResult = await executeTool('gmail_send', { to: details.to, subject: details.subject, body: details.body }, sessionId, false);
+          if (toolResult.success) {
+            console.log(chalk.green('\nEmail sent successfully!'));
+          } else {
+            console.log(chalk.red(`\nFailed to send email: ${toolResult.error}`));
+          }
+        } else {
+          console.log(chalk.yellow('\nEmail dispatch cancelled.'));
+        }
       } else {
-        console.log(chalk.yellow('\nUsage: /send <recipient> "<subject>" "<body>"'));
-        console.log(chalk.dim('Example: /send adilrahiman.123@gmail.com "Party tomorrow" "Are you coming?"'));
+        const aiPrompt = await prompts({
+          type: 'text',
+          name: 'desc',
+          message: 'What is this email about? (Describe the contents):',
+          validate: val => val.trim().length > 0 || 'Description is required.'
+        });
+
+        if (aiPrompt.desc) {
+          await runAgentStep(sessionId, `Draft and send an email based on this description: ${aiPrompt.desc}`, { isSilent: false, spinner: null });
+        } else {
+          console.log(chalk.yellow('\nEmail dispatch cancelled.'));
+        }
       }
       continue;
     }
