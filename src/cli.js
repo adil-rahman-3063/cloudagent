@@ -265,6 +265,13 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
     }
 
     if (response.tool) {
+      // Save proposed tool call to history so follow-up requests have full context
+      saveMessage(sessionId, 'assistant', JSON.stringify({
+        thought: response.thought,
+        tool: response.tool,
+        arguments: response.arguments
+      }));
+
       const tool = REGISTRY[response.tool];
       const isSafe = tool && tool.risk === 'safe';
 
