@@ -41,6 +41,7 @@ This document outlines key technical decisions, implementations, and setup detai
    - Context resumption: prompts the user on startup to load their prior active chat session.
    - Built-in capabilities menu: triggers on `/help`, `help`, `what can i do`, or `what can you do` to output a clean, formatted overview of supported integrations.
    - **Interactive Email Dispatcher**: Intercepts `/send` (without arguments) or conversational email requests to prompt the user to choose between "Manual" (prompting details one-by-one) or "AI" (drafting based on a described topic).
+   - **Robust Command Parsing**: Utilizes `parseCommandArgs` in the CLI rather than a naive regex split, ensuring single-quote apostrophes (e.g. `you're`, `there's`) inside double-quoted string parameters do not cause argument truncation.
 
 ---
 
