@@ -4,7 +4,7 @@ import { gmailList, gmailRead, gmailSend } from './tools/gmail.js';
 import { driveSearch, driveDownload, driveUpload } from './tools/drive.js';
 import { calendarList, calendarCreate } from './tools/calendar.js';
 import { gitStatus, gitPull, gitCommit, gitPush, githubRepoCreate } from './tools/git.js';
-import { fileList, fileRead, fileWrite, fileDelete } from './tools/filesystem.js';
+import { fileList, fileRead, fileWrite, fileDelete, fileCd } from './tools/filesystem.js';
 import { tasksList, tasksCreate, tasksUpdate } from './tools/tasks.js';
 import { logToolRun, updateToolRun } from './db.js';
 
@@ -27,6 +27,7 @@ export const REGISTRY = {
   file_read: fileRead,
   file_write: fileWrite,
   file_delete: fileDelete,
+  file_cd: fileCd,
   tasks_list: tasksList,
   tasks_create: tasksCreate,
   tasks_update: tasksUpdate

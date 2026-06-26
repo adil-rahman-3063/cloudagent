@@ -103,3 +103,33 @@ export const fileDelete = {
     }
   }
 };
+
+export const fileCd = {
+  name: 'file_cd',
+  description: 'Change the current working directory to navigate to other folders or projects',
+  schema: {
+    type: 'object',
+    properties: {
+      dirPath: { type: 'string', description: 'Path to the target directory (absolute or relative)' }
+    },
+    required: ['dirPath']
+  },
+  risk: 'safe',
+  async execute({ dirPath }) {
+    try {
+      checkAllowed();
+      const resolvedPath = path.resolve(dirPath);
+      if (!fs.existsSync(resolvedPath)) {
+        return { success: false, error: `Directory does not exist: ${dirPath}` };
+      }
+      const stats = fs.statSync(resolvedPath);
+      if (!stats.isDirectory()) {
+        return { success: false, error: `Path is not a directory: ${dirPath}` };
+      }
+      process.chdir(resolvedPath);
+      return { success: true, output: `Changed working directory to: ${process.cwd()}` };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+};

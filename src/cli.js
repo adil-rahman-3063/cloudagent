@@ -10,6 +10,7 @@ import { askAgent } from './agent.js';
 import { getToolsSchema, executeTool, REGISTRY } from './tool-registry.js';
 import { PROVIDERS } from './providers/models.js';
 import { tryFormatSuccess } from './formatter.js';
+import path from 'path';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -231,10 +232,11 @@ async function main() {
 
   // Start chat loop
   while (true) {
+    const currentFolder = path.basename(process.cwd()) || process.cwd();
     const userInput = await prompts({
       type: 'text',
       name: 'text',
-      message: chalk.green('cloudagent>')
+      message: chalk.green(`cloudagent:${currentFolder}>`)
     });
 
     const prompt = userInput.text?.trim();
