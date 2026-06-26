@@ -81,11 +81,11 @@ export const tasksCreate = {
 
 export const tasksUpdate = {
   name: 'tasks_update',
-  description: 'Update an existing Google Task (e.g., mark as completed, rename, change due date)',
+  description: 'Update an existing Google Task (e.g., mark as completed, rename, change due date) by ID or title/name',
   schema: {
     type: 'object',
     properties: {
-      id: { type: 'string', description: 'The unique ID of the task to update' },
+      id: { type: 'string', description: 'The unique ID or title/name of the task to update' },
       tasklist: { type: 'string', description: 'Tasklist ID (defaults to "@default")' },
       status: { type: 'string', description: 'Status of the task ("completed" or "needsAction")' },
       title: { type: 'string', description: 'Updated title or summary of the task' },
@@ -97,7 +97,33 @@ export const tasksUpdate = {
   risk: 'confirm',
   async execute({ id, tasklist, status, title, notes, due }) {
     const listId = tasklist || '@default';
-    const body = { id };
+    let targetId = id;
+
+    // List tasks to try to find one matching by title/name
+    try {
+      const listParams = { tasklist: listId };
+      const listArgs = [
+        'tasks',
+        'tasks',
+        'list',
+        '--params',
+        JSON.stringify(listParams),
+        '--format',
+        'json'
+      ];
+      const listStdout = execGws(listArgs).toString();
+      const listData = JSON.parse(listStdout);
+      const items = listData.items || [];
+      
+      const matchedTask = items.find(t => t.title && t.title.toLowerCase().trim() === id.toLowerCase().trim());
+      if (matchedTask) {
+        targetId = matchedTask.id;
+      }
+    } catch (e) {
+      // ignore list errors and use id as-is
+    }
+
+    const body = { id: targetId };
     if (status) body.status = status;
     if (title) body.title = title;
     if (notes) body.notes = notes;
@@ -108,7 +134,7 @@ export const tasksUpdate = {
       'tasks',
       'update',
       '--params',
-      JSON.stringify({ tasklist: listId, task: id }),
+      JSON.stringify({ tasklist: listId, task: targetId }),
       '--json',
       JSON.stringify(body),
       '--format',

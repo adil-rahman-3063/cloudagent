@@ -28,18 +28,35 @@ export const gmailList = {
 
 export const gmailRead = {
   name: 'gmail_read',
-  description: 'Read the text body and headers of a specific email by ID',
+  description: 'Read the text body and headers of a specific email by ID or search query (e.g. sender email address)',
   schema: {
     type: 'object',
     properties: {
-      id: { type: 'string', description: 'The unique message ID to read' },
+      id: { type: 'string', description: 'The unique message ID to read, or sender/recipient email address or search query' },
       headers: { type: 'boolean', description: 'Include headers (From, To, Subject, Date) in the output' }
     },
     required: ['id']
   },
   risk: 'safe',
   async execute({ id, headers = true }) {
-    const args = ['gmail', '+read', '--id', id];
+    let targetId = id;
+    if (id && (!/^[a-f0-9]{16}$/i.test(id))) {
+      // If it's not a 16-character hex ID, search for messages using the query
+      const searchArgs = ['gmail', '+triage', '--query', id, '--max', '1', '--format', 'json'];
+      try {
+        const stdout = execGws(searchArgs).toString();
+        const data = JSON.parse(stdout);
+        const messages = data.messages || [];
+        if (messages.length > 0) {
+          targetId = messages[0].id;
+        } else {
+          return { success: false, error: `No emails found matching "${id}"` };
+        }
+      } catch (error) {
+        return { success: false, error: `Failed to resolve email ID for "${id}": ` + (error.stderr?.toString() || error.message) };
+      }
+    }
+    const args = ['gmail', '+read', '--id', targetId];
     if (headers) {
       args.push('--headers');
     }
