@@ -282,22 +282,33 @@ async function main() {
       
       const messages = getSessionMessages(sessionId);
       if (messages && messages.length > 0) {
-        console.log(chalk.dim('--- Last messages in this session ---'));
-        const lastThree = messages.slice(-3);
-        for (const msg of lastThree) {
-          const prefix = msg.role === 'user' ? chalk.green('cloudagent>') : chalk.bold('Agent:');
-          let displayContent = msg.content;
-          try {
-            const parsed = JSON.parse(msg.content);
-            if (parsed.tool) {
-              displayContent = `[Executed tool: ${parsed.tool}]`;
+        // Filter out tool calls, tool results, and system instructions to show only the conversation
+        const chatLog = messages
+          .filter(msg => {
+            const isToolLog = msg.content.startsWith('{') && (msg.content.includes('"tool"') || msg.content.includes('"status"'));
+            const isSystemInstruction = msg.content.includes('[System Instruction:');
+            const isToolSuccessMsg = msg.content.startsWith('Tool execution');
+            return !isToolLog && !isSystemInstruction && !isToolSuccessMsg;
+          })
+          .slice(-3);
+
+        if (chatLog.length > 0) {
+          console.log(chalk.bold.dim('💬 Recent Conversation:'));
+          for (const msg of chatLog) {
+            const label = msg.role === 'user' ? chalk.bold.green('👤 You:') : chalk.bold.cyan('🤖 Agent:');
+            let text = msg.content;
+            
+            // Strip out time context or system context from user message
+            const contextIndex = text.indexOf('[System Context:');
+            if (contextIndex !== -1) {
+              text = text.substring(0, contextIndex).trim();
             }
-          } catch (e) {
-            // plain text
+            if (text) {
+              console.log(`  ${label} ${chalk.dim(text)}`);
+            }
           }
-          console.log(chalk.dim(`${prefix} ${displayContent}`));
+          console.log('');
         }
-        console.log(chalk.dim('-------------------------------------\n'));
       }
     }
   }
@@ -317,7 +328,7 @@ async function main() {
     const userInput = await prompts({
       type: 'text',
       name: 'text',
-      message: chalk.green(`cloudagent:${currentFolder}>`)
+      message: `\n${chalk.bold.cyan('☁️  cloudagent')} ${chalk.dim(currentFolder)}\n${chalk.cyan('› ')}`
     });
 
     const prompt = userInput.text?.trim();
@@ -472,7 +483,6 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
           state.spinner.stop();
           state.spinner = null;
         }
-        console.log(chalk.dim(`\n🧠 Thought: ${response.thought}`));
         state.spinner = ora('CloudAgent thinking...').start();
       }
     }
@@ -565,7 +575,7 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
         state.spinner.stop();
         state.spinner = null;
       }
-      console.log(`\n🤖 ${chalk.bold('Agent:')} ${response.text}\n`);
+      console.log(`\n${chalk.bold.cyan('🤖 Agent:')} ${response.text}\n`);
       saveMessage(sessionId, 'assistant', response.text);
     } else if (response.thought) {
       // The model only generated a thought, but didn't output a tool call or a text response.
