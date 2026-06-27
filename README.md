@@ -84,6 +84,7 @@ This checklist tracks the testing status of all CloudAgent capabilities:
   - [x] Apostrophe command parsing (e.g., words like `you're` and `I'm` inside double-quoted parameters).
   - [x] List unread inbox summaries.
   - [x] Read specific email threads by ID.
+  - [x] Modify email labels / mark as read (`gmail_modify_labels`).
 
 - [x] **Google Tasks**
   - [x] List tasks from the default or specific list (formatted in boxed tables).
