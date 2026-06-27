@@ -5,7 +5,7 @@ import prompts from 'prompts';
 import ora from 'ora';
 import { runDiagnostics, ensureGwsInstalled } from './doctor.js';
 import { readConfig, writeConfig, setProviderKey, setWorkspaceAllowed, workspaceAllowed, readModels } from './config.js';
-import { initDatabase, createSession, saveMessage, getSessionMessages, getLastSession } from './db.js';
+import { initDatabase, createSession, saveMessage, getSessionMessages, getLastSession, getSessions } from './db.js';
 import { askAgent } from './agent.js';
 import { getToolsSchema, executeTool, REGISTRY } from './tool-registry.js';
 import { PROVIDERS } from './providers/models.js';
@@ -180,24 +180,37 @@ async function main() {
   }
 
   // Start session
-  const lastSession = getLastSession();
+  const sessions = getSessions();
   let sessionId = '';
   
-  if (lastSession) {
-    console.log(chalk.cyan(`Found previous chat session: "${lastSession.name}"`));
+  if (sessions && sessions.length > 0) {
+    const choices = sessions.map(s => {
+      let timeStr = '';
+      try {
+        // Convert SQL UTC datetime to local time string
+        const dateObj = new Date(s.updated_at + ' UTC');
+        timeStr = ` (${isNaN(dateObj.getTime()) ? s.updated_at : dateObj.toLocaleString()})`;
+      } catch (e) {
+        timeStr = ` (${s.updated_at})`;
+      }
+      return {
+        title: `Resume: "${s.name}"${timeStr}`,
+        value: s.id
+      };
+    });
+    choices.push({ title: '🆕 Start a new session', value: 'new' });
+    
     const resumePrompt = await prompts({
       type: 'select',
       name: 'action',
-      message: 'Would you like to resume this session or start a new one?',
-      choices: [
-        { title: 'Resume previous session', value: 'resume' },
-        { title: 'Start a new session', value: 'new' }
-      ]
+      message: 'Choose a session to resume or start a new one:',
+      choices
     });
     
-    if (resumePrompt.action === 'resume') {
-      sessionId = lastSession.id;
-      console.log(chalk.green(`Resumed session: ${lastSession.name}\n`));
+    if (resumePrompt.action && resumePrompt.action !== 'new') {
+      sessionId = resumePrompt.action;
+      const matched = sessions.find(s => s.id === sessionId);
+      console.log(chalk.green(`Resumed session: ${matched.name}\n`));
       
       const messages = getSessionMessages(sessionId);
       if (messages && messages.length > 0) {

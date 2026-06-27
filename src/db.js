@@ -68,6 +68,12 @@ export function getLastSession() {
   return stmt.get();
 }
 
+export function getSessions() {
+  const connection = initDatabase();
+  const stmt = connection.prepare('SELECT id, name, updated_at FROM sessions ORDER BY updated_at DESC');
+  return stmt.all();
+}
+
 export function getSessionMessages(sessionId) {
   const connection = initDatabase();
   const stmt = connection.prepare('SELECT role, content, timestamp FROM messages WHERE session_id = ? ORDER BY id ASC');
