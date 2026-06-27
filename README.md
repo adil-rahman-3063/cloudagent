@@ -89,7 +89,7 @@ This checklist tracks the testing status of all CloudAgent capabilities:
   - [x] List tasks from the default or specific list (formatted in boxed tables).
   - [x] Create tasks with titles, notes, and due dates.
   - [x] Dynamic tool name normalization (`google_tasks_list` -> `tasks_list`).
-  - [ ] Update and complete tasks (`tasks_update`).
+  - [x] Update and complete tasks (`tasks_update`).
 
 - [x] **Google Calendar**
   - [x] List agenda and upcoming schedule events.
