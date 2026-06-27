@@ -5,8 +5,8 @@ import prompts from 'prompts';
 import ora from 'ora';
 import { runDiagnostics, ensureGwsInstalled } from './doctor.js';
 import { readConfig, writeConfig, setProviderKey, setWorkspaceAllowed, workspaceAllowed, readModels } from './config.js';
-import { initDatabase, createSession, saveMessage, getSessionMessages, getLastSession, getSessions } from './db.js';
-import { askAgent } from './agent.js';
+import { initDatabase, createSession, saveMessage, getSessionMessages, getLastSession, getSessions, clearAllSessions, deleteSession, updateSessionName } from './db.js';
+import { askAgent, getActiveProvider } from './agent.js';
 import { getToolsSchema, executeTool, REGISTRY } from './tool-registry.js';
 import { PROVIDERS } from './providers/models.js';
 import { tryFormatSuccess } from './formatter.js';
@@ -116,6 +116,74 @@ function parseCommandArgs(input) {
   }
   
   return args;
+}
+
+async function askSaveAndRenameChat(sessionId) {
+  // Let's prompt user if they want to save this session
+  const savePrompt = await prompts({
+    type: 'confirm',
+    name: 'save',
+    message: 'Would you like to save this chat session?',
+    initial: true
+  });
+
+  if (savePrompt.save) {
+    // Save/rename with AI
+    console.log(chalk.cyan('\nRenaming session using AI based on chat contents...'));
+    const spinner = ora('Generating title...').start();
+    try {
+      const messages = getSessionMessages(sessionId);
+      if (!messages || messages.length === 0) {
+        spinner.stop();
+        updateSessionName(sessionId, 'Empty Chat');
+        console.log(chalk.green('Session saved as "Empty Chat".'));
+        return;
+      }
+      
+      const formattedHistory = messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => {
+          let content = m.content;
+          try {
+            const parsed = JSON.parse(content);
+            if (parsed.thought) {
+              content = parsed.thought;
+            } else if (parsed.tool) {
+              content = `[Tool Call: ${parsed.tool}]`;
+            }
+          } catch (e) {}
+          return `${m.role}: ${content}`;
+        })
+        .join('\n');
+
+      const renamePrompt = [
+        {
+          role: 'user',
+          content: `You are a helper that summarizes a chat conversation into a short title. Generate a concise, descriptive title (maximum 4-5 words, no quotation marks or prefixes) summarizing the following conversation:\n\n${formattedHistory}`
+        }
+      ];
+
+      const provider = getActiveProvider();
+      const result = await provider.generateToolCall(renamePrompt, []);
+      const title = (result.text || result.thought || 'Saved Chat').trim().replace(/['"]/g, '');
+      spinner.stop();
+      if (title) {
+        updateSessionName(sessionId, title);
+        console.log(chalk.green(`Session saved as: "${title}"`));
+      } else {
+        updateSessionName(sessionId, 'Saved Chat');
+        console.log(chalk.green('Session saved.'));
+      }
+    } catch (e) {
+      spinner.stop();
+      updateSessionName(sessionId, 'Saved Chat');
+      console.log(chalk.green('Session saved.'));
+    }
+  } else {
+    // Delete session from DB
+    deleteSession(sessionId);
+    console.log(chalk.yellow('Session discarded.'));
+  }
 }
 
 async function main() {
@@ -257,8 +325,25 @@ async function main() {
     if (!prompt) continue;
 
     if (prompt === '/exit' || prompt === 'exit') {
+      await askSaveAndRenameChat(sessionId);
       console.log(chalk.cyan('\nGoodbye!'));
       break;
+    }
+
+    if (prompt === '/delete-all' || prompt === '/clear') {
+      const confirmClear = await prompts({
+        type: 'confirm',
+        name: 'value',
+        message: chalk.red('Are you sure you want to delete ALL chat sessions and history?'),
+        initial: false
+      });
+      if (confirmClear.value) {
+        clearAllSessions();
+        console.log(chalk.green('All chat sessions and history deleted successfully.'));
+        sessionId = 'session_' + Date.now();
+        createSession(sessionId);
+      }
+      continue;
     }
 
     if (prompt === '/doctor') {

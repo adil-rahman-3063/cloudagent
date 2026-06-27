@@ -11,6 +11,7 @@ export function initDatabase() {
   initConfigDirs();
   db = new Database(DB_PATH);
   db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
 
   // Create tables
   db.exec(`
@@ -100,4 +101,21 @@ export function updateToolRun(id, status, output) {
   const connection = initDatabase();
   const stmt = connection.prepare('UPDATE tool_runs SET status = ?, output = ? WHERE id = ?');
   stmt.run(status || '', output !== undefined && output !== null ? String(output) : '', id);
+}
+
+export function clearAllSessions() {
+  const connection = initDatabase();
+  connection.exec('DELETE FROM sessions');
+}
+
+export function deleteSession(sessionId) {
+  const connection = initDatabase();
+  const stmt = connection.prepare('DELETE FROM sessions WHERE id = ?');
+  stmt.run(sessionId || '');
+}
+
+export function updateSessionName(sessionId, name) {
+  const connection = initDatabase();
+  const stmt = connection.prepare('UPDATE sessions SET name = ? WHERE id = ?');
+  stmt.run(name || '', sessionId || '');
 }
