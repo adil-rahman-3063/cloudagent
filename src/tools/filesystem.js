@@ -115,7 +115,7 @@ export const fileCd = {
     },
     required: ['dirPath']
   },
-  risk: 'safe',
+  risk: 'confirm',
   async execute({ dirPath }) {
     try {
       checkAllowed();

@@ -1,3 +1,4 @@
+import path from 'path';
 import chalk from 'chalk';
 import prompts from 'prompts';
 import { gmailList, gmailRead, gmailSend, gmailModifyLabels } from './tools/gmail.js';
@@ -61,6 +62,8 @@ export async function executeTool(toolName, args, sessionId, silent = false) {
     const isWarning = tool.risk === 'high';
     if (isWarning) {
       console.log(chalk.red.bold(`\n⚠️  WARNING: High-risk action requested!`));
+    } else if (toolName === 'file_cd') {
+      console.log(chalk.yellow(`\n🔒 Directory Navigation Permission Request:`));
     } else {
       console.log(chalk.yellow(`\n🔔 CloudAgent wants to execute a state-changing tool:`));
     }
@@ -69,6 +72,9 @@ export async function executeTool(toolName, args, sessionId, silent = false) {
       // Escape newlines for visual presentation
       const cleanBody = String(args.body || '').replace(/\n/g, '\\n');
       console.log(`Proposed Command: ${chalk.cyan(`/send ${args.to} "${args.subject}" "${cleanBody}"`)}`);
+    } else if (toolName === 'file_cd') {
+      const resolvedPath = path.resolve(args.dirPath);
+      console.log(`Proposed Target Directory: ${chalk.cyan(resolvedPath)}`);
     } else {
       console.log(`Tool: ${chalk.bold(toolName)}`);
       console.log(`Arguments:\n${chalk.cyan(JSON.stringify(args, null, 2))}`);
@@ -77,7 +83,9 @@ export async function executeTool(toolName, args, sessionId, silent = false) {
     const response = await prompts({
       type: 'confirm',
       name: 'value',
-      message: isWarning ? chalk.red('Approve this high-risk action?') : 'Approve execution?',
+      message: isWarning 
+        ? chalk.red('Approve this high-risk action?') 
+        : (toolName === 'file_cd' ? 'Allow access to navigate to this directory?' : 'Approve execution?'),
       initial: !isWarning
     });
     
