@@ -92,3 +92,83 @@ export const gmailSend = {
     }
   }
 };
+
+export const gmailModifyLabels = {
+  name: 'gmail_modify_labels',
+  description: 'Modify labels of one or more email messages (e.g. add/remove labels like UNREAD, INBOX, STARRED)',
+  schema: {
+    type: 'object',
+    properties: {
+      ids: { 
+        type: 'array', 
+        items: { type: 'string' }, 
+        description: 'Array of message IDs or search queries (e.g. sender email address)' 
+      },
+      addLabelIds: { 
+        type: 'array', 
+        items: { type: 'string' }, 
+        description: 'Labels to add (e.g. ["STARRED"])' 
+      },
+      removeLabelIds: { 
+        type: 'array', 
+        items: { type: 'string' }, 
+        description: 'Labels to remove (e.g. ["UNREAD"] to mark as read)' 
+      }
+    },
+    required: ['ids']
+  },
+  risk: 'confirm',
+  async execute({ ids, addLabelIds = [], removeLabelIds = [] }) {
+    const results = [];
+    for (const id of ids) {
+      let targetId = id;
+      // Resolve query to ID if it's not a standard hex ID
+      if (id && !/^[a-f0-9]{16}$/i.test(id)) {
+        const searchArgs = ['gmail', '+triage', '--query', id, '--max', '1', '--format', 'json'];
+        try {
+          const stdout = execGws(searchArgs).toString();
+          const data = JSON.parse(stdout);
+          const messages = data.messages || [];
+          if (messages.length > 0) {
+            targetId = messages[0].id;
+          } else {
+            results.push({ id, success: false, error: `No emails found matching "${id}"` });
+            continue;
+          }
+        } catch (error) {
+          results.push({ id, success: false, error: `Failed to resolve ID for "${id}": ` + (error.stderr?.toString() || error.message) });
+          continue;
+        }
+      }
+      
+      const args = [
+        'gmail',
+        'users',
+        'messages',
+        'modify',
+        '--params',
+        JSON.stringify({ userId: 'me', id: targetId }),
+        '--json',
+        JSON.stringify({
+          addLabelIds: addLabelIds,
+          removeLabelIds: removeLabelIds
+        }),
+        '--format',
+        'json'
+      ];
+      try {
+        const stdout = execGws(args).toString();
+        results.push({ id: targetId, success: true, output: JSON.parse(stdout) });
+      } catch (error) {
+        results.push({ id: targetId, success: false, error: error.stderr?.toString() || error.message });
+      }
+    }
+    
+    const allSuccess = results.every(r => r.success);
+    return {
+      success: allSuccess,
+      output: JSON.stringify(results, null, 2)
+    };
+  }
+};
+

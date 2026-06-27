@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import prompts from 'prompts';
-import { gmailList, gmailRead, gmailSend } from './tools/gmail.js';
+import { gmailList, gmailRead, gmailSend, gmailModifyLabels } from './tools/gmail.js';
 import { driveSearch, driveDownload, driveUpload } from './tools/drive.js';
 import { calendarList, calendarCreate } from './tools/calendar.js';
 import { gitStatus, gitPull, gitCommit, gitPush, githubRepoCreate } from './tools/git.js';
@@ -13,6 +13,7 @@ export const REGISTRY = {
   gmail_list: gmailList,
   gmail_read: gmailRead,
   gmail_send: gmailSend,
+  gmail_modify_labels: gmailModifyLabels,
   drive_search: driveSearch,
   drive_download: driveDownload,
   drive_upload: driveUpload,

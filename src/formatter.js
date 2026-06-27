@@ -126,6 +126,9 @@ export function tryFormatSuccess(toolName, stdout) {
     if (toolName === 'tasks_create' && resObj.id) {
       return chalk.green(`\n✓ Task created successfully! (ID: ${resObj.id})`);
     }
+    if (toolName === 'gmail_modify_labels') {
+      return chalk.green(`\n✓ Email labels updated successfully!`);
+    }
     return stdout;
   } catch (e) {
     return stdout;

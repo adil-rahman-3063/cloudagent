@@ -93,6 +93,12 @@ export async function askAgent(chatHistory, tools) {
       response.tool = 'file_cd';
     } else if (toolName === 'find_projects' || toolName === 'list_projects' || toolName === 'get_projects') {
       response.tool = 'file_find_projects';
+    } else if (toolName === 'gmail_mark_as_read' || toolName === 'gmail_modify_labels' || toolName === 'gmail_mark_read') {
+      response.tool = 'gmail_modify_labels';
+      if (toolName === 'gmail_mark_as_read' || toolName === 'gmail_mark_read') {
+        response.arguments = response.arguments || {};
+        response.arguments.removeLabelIds = ['UNREAD'];
+      }
     }
   }
 
