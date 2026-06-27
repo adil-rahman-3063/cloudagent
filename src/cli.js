@@ -560,15 +560,18 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
           await runAgentStep(sessionId, `Tool execution failed for ${response.tool}: ${toolResult.error} [System Instruction: The tool execution failed. Please report the error to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`, state);
         }
       }
-    } else if (response.text || response.thought) {
-      const finalMsg = response.text || response.thought;
+    } else if (response.text) {
       if (state.spinner) {
         state.spinner.stop();
         state.spinner = null;
       }
-      const outputText = typeof finalMsg === 'object' ? JSON.stringify(finalMsg, null, 2) : finalMsg;
-      console.log(`\n🤖 ${chalk.bold('Agent:')} ${outputText}\n`);
-      saveMessage(sessionId, 'assistant', outputText);
+      console.log(`\n🤖 ${chalk.bold('Agent:')} ${response.text}\n`);
+      saveMessage(sessionId, 'assistant', response.text);
+    } else if (response.thought) {
+      // The model only generated a thought, but didn't output a tool call or a text response.
+      // Re-prompt the model to proceed to the actual action.
+      saveMessage(sessionId, 'assistant', JSON.stringify({ thought: response.thought }));
+      await runAgentStep(sessionId, "You only provided a 'thought'. Please output a valid JSON containing either a 'tool' to execute or a 'text' response for the user.", state);
     } else {
       if (state.spinner) {
         state.spinner.stop();

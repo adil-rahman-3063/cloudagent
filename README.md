@@ -96,10 +96,10 @@ This checklist tracks the testing status of all CloudAgent capabilities:
   - [x] List agenda and upcoming schedule events.
   - [x] Create calendar events with summaries, times, and Meet links.
 
-- [ ] **Google Drive**
-  - [ ] Search files and directories by query parameters.
-  - [ ] Download files to local directories.
-  - [ ] Upload local files to Drive.
+- [x] **Google Drive**
+  - [x] Search files and directories by query parameters.
+  - [x] Download files to local directories.
+  - [x] Upload local files to Drive.
 
 - [x] **System Diagnostics & Configurations**
   - [x] doctor check (Node, Internet, API keys, gws installation, git, sqlite status).
