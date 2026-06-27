@@ -7,6 +7,10 @@ CloudAgent is a privacy-focused, local-first AI assistant for Google Workspace (
 > CloudAgent relies entirely on the fantastic **Google Workspace CLI (`gws`)** tool for executing all Google service integrations (Gmail, Calendar, Drive). Huge appreciation to the `gws` project for enabling secure, command-line-driven workspace control.  
 > **Without `gws` installed and authenticated, CloudAgent functions only as an AI frontend for local terminal/filesystem operations and LLM queries.**
 
+> [!WARNING]  
+> **Disclaimer & AI Processing:**  
+> All text, prompts, and information you input into CloudAgent—along with any files inside your authorized workspace directory—are passed directly to the configured AI models to decide which tools and actions to execute. You must review all proposed commands and state-changing actions (such as sending emails or deleting files) before approving them.
+
 ---
 
 ## Key Features
