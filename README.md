@@ -82,8 +82,8 @@ This checklist tracks the testing status of all CloudAgent capabilities:
   - [x] Parameter validation (preventing empty subject/body executions).
   - [x] Multiline body formatting (escaped newlines parsed correctly on Windows without truncation).
   - [x] Apostrophe command parsing (e.g., words like `you're` and `I'm` inside double-quoted parameters).
-  - [ ] List unread inbox summaries.
-  - [ ] Read specific email threads by ID.
+  - [x] List unread inbox summaries.
+  - [x] Read specific email threads by ID.
 
 - [x] **Google Tasks**
   - [x] List tasks from the default or specific list (formatted in boxed tables).

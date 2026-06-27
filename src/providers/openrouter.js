@@ -100,18 +100,6 @@ CRITICAL: When presenting dates and times to the user, always convert them from 
         // Parse the response with robust error recovery
         const parsed = this.robustParseResponse(rawText);
 
-        // Save the successful fallback model as the new active model
-        if (currentModel !== configuredModel) {
-          try {
-            const config = readConfig();
-            config.active_model = currentModel;
-            writeConfig(config);
-            this.model = currentModel;
-          } catch (e) {
-            // Ignore config write failures
-          }
-        }
-
         return parsed;
 
       } catch (error) {
