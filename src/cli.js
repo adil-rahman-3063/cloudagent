@@ -427,14 +427,14 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
             output: toolResult.output 
           }));
 
-          await runAgentStep(sessionId, `Tool execution success for ${response.tool}.`, state);
+          await runAgentStep(sessionId, `Tool execution success for ${response.tool}. [System Instruction: The tool has executed successfully. Please present the result to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`, state);
         } else {
           saveMessage(sessionId, 'assistant', JSON.stringify({ 
             status: 'failed', 
             tool: response.tool, 
             error: toolResult.error 
           }));
-          await runAgentStep(sessionId, `Tool execution failed for ${response.tool}: ${toolResult.error}`, state);
+          await runAgentStep(sessionId, `Tool execution failed for ${response.tool}: ${toolResult.error} [System Instruction: The tool execution failed. Please report the error to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`, state);
         }
       } else {
         // Non-safe tool (confirm / high risk)
@@ -457,7 +457,7 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
             output: toolResult.output 
           }));
 
-          await runAgentStep(sessionId, `Tool execution success for ${response.tool}.`, state);
+          await runAgentStep(sessionId, `Tool execution success for ${response.tool}. [System Instruction: The tool has executed successfully. Please present the result to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`, state);
         } else {
           console.log(chalk.red(`\nTool error: ${toolResult.error}`));
           saveMessage(sessionId, 'assistant', JSON.stringify({ 
@@ -465,7 +465,14 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
             tool: response.tool, 
             error: toolResult.error 
           }));
-          await runAgentStep(sessionId, `Tool execution failed for ${response.tool}: ${toolResult.error}`, state);
+          if (toolResult.error === 'Execution rejected by user') {
+            if (state.spinner) {
+              state.spinner.stop();
+              state.spinner = null;
+            }
+            return;
+          }
+          await runAgentStep(sessionId, `Tool execution failed for ${response.tool}: ${toolResult.error} [System Instruction: The tool execution failed. Please report the error to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`, state);
         }
       }
     } else if (response.text || response.thought) {
