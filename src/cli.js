@@ -313,7 +313,7 @@ async function main() {
 
   // Start chat loop
   while (true) {
-    const currentFolder = path.basename(process.cwd()) || process.cwd();
+    const currentFolder = process.cwd();
     const userInput = await prompts({
       type: 'text',
       name: 'text',
