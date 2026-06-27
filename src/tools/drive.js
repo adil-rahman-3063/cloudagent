@@ -14,15 +14,28 @@ export const driveSearch = {
   schema: {
     type: 'object',
     properties: {
-      query: { type: 'string', description: 'Search term or query' }
+      query: { type: 'string', description: 'Search term or query (e.g. "my-doc" or structured like "mimeType = \'image/jpeg\'")' }
     }
   },
   risk: 'safe',
   async execute({ query }) {
-    const args = ['drive', 'files', 'list', '--format', 'json'];
+    const params = {};
     if (query) {
-      args.push('--query', query);
+      if (query.includes('=') || query.includes('contains')) {
+        params.q = query;
+      } else {
+        params.q = `name contains '${query}'`;
+      }
     }
+    const args = [
+      'drive',
+      'files',
+      'list',
+      '--params',
+      JSON.stringify(params),
+      '--format',
+      'json'
+    ];
     try {
       const stdout = execGws(args).toString();
       return { success: true, output: tryFormatDrive(stdout) };
@@ -34,11 +47,11 @@ export const driveSearch = {
 
 export const driveDownload = {
   name: 'drive_download',
-  description: 'Download a file from Google Drive by its File ID',
+  description: 'Download a file from Google Drive by its File ID or name',
   schema: {
     type: 'object',
     properties: {
-      fileId: { type: 'string', description: 'The unique ID of the file to download' },
+      fileId: { type: 'string', description: 'The unique ID or filename of the file to download' },
       destination: { type: 'string', description: 'Optional local destination path' }
     },
     required: ['fileId']
@@ -47,7 +60,33 @@ export const driveDownload = {
   async execute({ fileId, destination }) {
     try {
       if (destination) checkAllowed();
-      const args = ['drive', 'files', 'download', fileId];
+      let targetId = fileId;
+
+      // Resolve name to ID if it doesn't look like a standard Drive ID
+      if (fileId && (fileId.includes('.') || fileId.includes(' ') || fileId.length < 25)) {
+        const params = { q: `name = '${fileId}'` };
+        const listArgs = [
+          'drive',
+          'files',
+          'list',
+          '--params',
+          JSON.stringify(params),
+          '--format',
+          'json'
+        ];
+        try {
+          const stdout = execGws(listArgs).toString();
+          const data = JSON.parse(stdout);
+          const files = data.files || [];
+          if (files.length > 0) {
+            targetId = files[0].id;
+          }
+        } catch (e) {
+          // ignore lookup errors
+        }
+      }
+
+      const args = ['drive', 'files', 'download', targetId];
       if (destination) {
         args.push('--destination', path.resolve(destination));
       }
