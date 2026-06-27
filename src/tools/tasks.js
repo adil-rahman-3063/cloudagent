@@ -85,7 +85,7 @@ export const tasksUpdate = {
   schema: {
     type: 'object',
     properties: {
-      id: { type: 'string', description: 'The unique ID or title/name of the task to update' },
+      id: { type: 'string', description: 'The unique ID of the task to update, or its title/name (e.g. "test", "get haircut"). If the unique ID is not known, you MUST pass the title/name of the task as this argument.' },
       tasklist: { type: 'string', description: 'Tasklist ID (defaults to "@default")' },
       status: { type: 'string', description: 'Status of the task ("completed" or "needsAction")' },
       title: { type: 'string', description: 'Updated title or summary of the task' },
