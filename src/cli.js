@@ -187,7 +187,7 @@ async function askSaveAndRenameChat(sessionId) {
   }
 }
 
-async function handleInteractiveSubmenu(service, sessionId, state) {
+async function handleInteractiveSubmenu(service, sessionId) {
   const subchoices = [];
   if (service === 'gmail') {
     subchoices.push(
@@ -262,7 +262,7 @@ async function handleInteractiveSubmenu(service, sessionId, state) {
   return `Execute ${subSelect.action} tool`;
 }
 
-async function handleInteractiveMenu(sessionId, state) {
+async function handleInteractiveMenu(sessionId) {
   while (true) {
     const mainSelect = await prompts({
       type: 'select',
@@ -283,7 +283,7 @@ async function handleInteractiveMenu(sessionId, state) {
       return null;
     }
 
-    const selected = await handleInteractiveSubmenu(mainSelect.service, sessionId, state);
+    const selected = await handleInteractiveSubmenu(mainSelect.service, sessionId);
     if (selected) {
       return selected;
     }
@@ -453,9 +453,29 @@ async function main() {
   while (true) {
     const currentFolder = process.cwd();
     const userInput = await prompts({
-      type: 'text',
+      type: 'autocomplete',
       name: 'text',
-      message: `\n${chalk.bold.cyan('☁️  cloudagent')} ${chalk.dim(currentFolder)}\n${chalk.cyan('› ')}`
+      message: `\n${chalk.bold.cyan('☁️  cloudagent')} ${chalk.dim(currentFolder)}\n${chalk.cyan('› ')}`,
+      choices: [
+        { title: '📧 /gmail - Gmail actions', value: '/gmail' },
+        { title: '📁 /drive - Google Drive actions', value: '/drive' },
+        { title: '📅 /calendar - Google Calendar actions', value: '/calendar' },
+        { title: '✅ /tasks - Google Tasks actions', value: '/tasks' },
+        { title: '💻 /filesystem - Filesystem actions', value: '/filesystem' },
+        { title: '🔧 /git - Git/GitHub actions', value: '/git' },
+        { title: '🩺 /doctor - Run diagnostics', value: '/doctor' },
+        { title: '🗑️  /clear - Clear chat history', value: '/clear' },
+        { title: '🚪 /exit - Exit session', value: '/exit' }
+      ],
+      suggest: (input, choices) => {
+        const filtered = choices.filter(c => c.value.toLowerCase().includes(input.toLowerCase()));
+        const trimmed = input.trim();
+        const customChoice = {
+          title: trimmed ? `💬 Ask Agent: "${trimmed}"` : '💬 Ask Agent: (Type your prompt)',
+          value: trimmed
+        };
+        return Promise.resolve([customChoice, ...filtered]);
+      }
     });
 
     let prompt = userInput.text?.trim();
@@ -463,7 +483,7 @@ async function main() {
     if (!prompt) continue;
 
     if (prompt === '/' || prompt === '/menu') {
-      const selectedPrompt = await handleInteractiveMenu(sessionId, state);
+      const selectedPrompt = await handleInteractiveMenu(sessionId);
       if (!selectedPrompt) continue;
       prompt = selectedPrompt;
     } else if (prompt.startsWith('/')) {
@@ -471,7 +491,7 @@ async function main() {
       const cmd = parts[0].substring(1).toLowerCase();
       const categories = ['gmail', 'drive', 'calendar', 'tasks', 'filesystem', 'git'];
       if (categories.includes(cmd)) {
-        const selectedPrompt = await handleInteractiveSubmenu(cmd, sessionId, state);
+        const selectedPrompt = await handleInteractiveSubmenu(cmd, sessionId);
         if (!selectedPrompt) continue;
         prompt = selectedPrompt;
       }
