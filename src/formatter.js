@@ -129,6 +129,20 @@ export function tryFormatSuccess(toolName, stdout) {
     if (toolName === 'gmail_modify_labels') {
       return chalk.green(`\n✓ Email labels updated successfully!`);
     }
+    if (toolName === 'file_list') {
+      const { directories = [], files = [] } = resObj;
+      let output = '';
+      if (directories.length > 0) {
+        output += `\n${chalk.bold.cyan('📂 Directories:')}\n` + directories.map(d => `  - ${d}`).join('\n') + '\n';
+      }
+      if (files.length > 0) {
+        output += `\n${chalk.bold.green('📄 Files:')}\n` + files.map(f => `  - ${f}`).join('\n') + '\n';
+      }
+      if (!output) {
+        return chalk.dim('\n(empty directory)');
+      }
+      return output;
+    }
     return stdout;
   } catch (e) {
     return stdout;

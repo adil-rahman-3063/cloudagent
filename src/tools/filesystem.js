@@ -24,11 +24,24 @@ export const fileList = {
       checkAllowed();
       const resolvedPath = path.resolve(dirPath);
       const files = fs.readdirSync(resolvedPath);
-      const output = files.map(file => {
-        const stats = fs.statSync(path.join(resolvedPath, file));
-        return `${stats.isDirectory() ? '[DIR] ' : '      '}${file}`;
-      }).join('\n');
-      return { success: true, output: output || '(empty directory)' };
+      const dirsList = [];
+      const filesList = [];
+      for (const file of files) {
+        try {
+          const stats = fs.statSync(path.join(resolvedPath, file));
+          if (stats.isDirectory()) {
+            dirsList.push(file);
+          } else {
+            filesList.push(file);
+          }
+        } catch (e) {
+          // ignore broken files
+        }
+      }
+      return { 
+        success: true, 
+        output: JSON.stringify({ directories: dirsList, files: filesList }) 
+      };
     } catch (error) {
       return { success: false, error: error.message };
     }
