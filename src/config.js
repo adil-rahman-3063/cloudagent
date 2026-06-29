@@ -12,7 +12,6 @@ const DEFAULT_MODELS = [
   // Tier 1 — Best
   "openai/gpt-oss-120b:free",
   "nousresearch/hermes-3-llama-3.1-405b:free",
-  "moonshotai/kimi-k2.6:free",
   "nvidia/nemotron-3-super-120b-a12b:free",
   "meta-llama/llama-3.3-70b-instruct:free",
   
@@ -20,7 +19,6 @@ const DEFAULT_MODELS = [
   "openai/gpt-oss-20b:free",
   "qwen/qwen3-next-80b-a3b-instruct:free",
   "google/gemma-4-31b-it:free",
-  "z-ai/glm-4.5-air:free",
   "poolside/laguna-m.1:free",
   "poolside/laguna-xs.2:free",
   
