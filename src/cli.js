@@ -355,9 +355,32 @@ async function main() {
       message: `\n${chalk.bold.cyan('☁️  cloudagent')} ${chalk.dim(currentFolder)}\n${chalk.cyan('› ')}`
     });
 
-    const prompt = userInput.text?.trim();
+    let prompt = userInput.text?.trim();
 
     if (!prompt) continue;
+
+    // Check for ambiguous "drive" references
+    const lowerPrompt = prompt.toLowerCase();
+    const hasDrive = /\bdri*ve\b/.test(lowerPrompt);
+    const hasGoogle = /google/.test(lowerPrompt) || /gdrive/.test(lowerPrompt);
+    const hasLocal = /local/.test(lowerPrompt) || /\bc:\b/.test(lowerPrompt) || /computer/.test(lowerPrompt) || /pc\b/.test(lowerPrompt) || /hard\s*drive/.test(lowerPrompt);
+
+    if (hasDrive && !hasGoogle && !hasLocal) {
+      const clarification = await prompts({
+        type: 'select',
+        name: 'choice',
+        message: 'Clarify destination:',
+        choices: [
+          { title: 'Google Drive', value: 'google' },
+          { title: 'Local Drive (C:)', value: 'local' }
+        ]
+      });
+      if (clarification.choice === 'google') {
+        prompt += ' (Clarification: user meant Google Drive)';
+      } else if (clarification.choice === 'local') {
+        prompt += ' (Clarification: user meant local computer C: drive)';
+      }
+    }
 
     if (prompt === '/exit' || prompt === 'exit') {
       await askSaveAndRenameChat(sessionId);
