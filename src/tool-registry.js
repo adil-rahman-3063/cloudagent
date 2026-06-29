@@ -36,9 +36,41 @@ export const REGISTRY = {
   tasks_update: tasksUpdate
 };
 
-// Returns schemas for the AI prompt
-export function getToolsSchema() {
-  return Object.values(REGISTRY).map(tool => ({
+// Returns schemas for the AI prompt, filtered dynamically by history context keywords/categories
+export function getToolsSchema(history = []) {
+  const categories = [];
+
+  // Combine all user prompts in history to extract keywords
+  const userMessages = history.filter(m => m.role === 'user').map(m => m.content.toLowerCase());
+  const combinedText = userMessages.join(' ');
+
+  if (combinedText) {
+    // Explicit category tag check (e.g. from interactive submenus)
+    if (combinedText.includes('category: gmail')) categories.push('gmail');
+    else if (combinedText.includes('category: drive')) categories.push('drive');
+    else if (combinedText.includes('category: calendar')) categories.push('calendar');
+    else if (combinedText.includes('category: tasks')) categories.push('tasks');
+    else if (combinedText.includes('category: filesystem')) categories.push('file');
+    else if (combinedText.includes('category: git')) categories.push('git', 'github');
+
+    // Natural language keyword checks (only if no explicit category tag was matched yet)
+    if (categories.length === 0) {
+      if (/\b(email|mail|send|draft|inbox|recipient|sender)\b/.test(combinedText)) categories.push('gmail');
+      if (/\b(drive|gdrive|upload|download|google\s+drive)\b/.test(combinedText)) categories.push('drive');
+      if (/\b(calendar|schedule|meeting|event|agenda|tomorrow|today|yesterday|date)\b/.test(combinedText)) categories.push('calendar');
+      if (/\b(task|todo|tasks|list\s+task|create\s+task)\b/.test(combinedText)) categories.push('tasks');
+      if (/\b(file|folder|directory|cd|path|filesystem|read|write|delete)\b/.test(combinedText)) categories.push('file');
+      if (/\b(git|github|repo|repository|commit|push|pull|clone|merge)\b/.test(combinedText)) categories.push('git', 'github');
+    }
+  }
+
+  // Filter tools list based on identified categories
+  let tools = Object.values(REGISTRY);
+  if (categories.length > 0) {
+    tools = tools.filter(tool => categories.some(cat => tool.name.startsWith(cat)));
+  }
+
+  return tools.map(tool => ({
     name: tool.name,
     description: tool.description,
     schema: tool.schema,

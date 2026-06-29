@@ -672,7 +672,7 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
   
   try {
     const history = getSessionMessages(sessionId);
-    const tools = getToolsSchema();
+    const tools = getToolsSchema(history);
 
     // Call LLM
     const response = await askAgent(history, tools);
