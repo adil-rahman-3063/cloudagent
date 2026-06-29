@@ -10,23 +10,69 @@ function checkAllowed() {
 
 export const driveSearch = {
   name: 'drive_search',
-  description: 'Search for files or folders in Google Drive',
+  description: 'Search for files or folders in Google Drive, or list files inside a specific folder',
   schema: {
     type: 'object',
     properties: {
-      query: { type: 'string', description: 'Search term or query (e.g. "my-doc" or structured like "mimeType = \'image/jpeg\'")' }
+      query: { type: 'string', description: 'Optional search term or query (e.g. "my-doc" or structured like "mimeType = \'image/jpeg\'")' },
+      folder: { type: 'string', description: 'Optional folder name or folder ID to list files inside it' }
     }
   },
   risk: 'safe',
-  async execute({ query }) {
+  async execute({ query, folder }) {
     const params = {};
-    if (query) {
-      if (query.includes('=') || query.includes('contains')) {
-        params.q = query;
+    
+    // Resolve folder ID if folder name/ID is provided
+    let folderId = null;
+    if (folder) {
+      if (/^[a-zA-Z0-9-_]{25,50}$/.test(folder)) {
+        folderId = folder;
       } else {
-        params.q = `name contains '${query}'`;
+        // Resolve folder name to ID
+        const folderLookupParams = {
+          q: `mimeType = 'application/vnd.google-apps.folder' and name = '${folder}'`
+        };
+        const lookupArgs = [
+          'drive',
+          'files',
+          'list',
+          '--params',
+          JSON.stringify(folderLookupParams),
+          '--format',
+          'json'
+        ];
+        try {
+          const stdout = execGws(lookupArgs).toString();
+          const data = JSON.parse(stdout);
+          const files = data.files || [];
+          if (files.length > 0) {
+            folderId = files[0].id;
+          }
+        } catch (e) {
+          // ignore lookup errors
+        }
       }
     }
+
+    let q = '';
+    if (folderId) {
+      q = `'${folderId}' in parents`;
+    }
+    
+    if (query) {
+      let termQ = '';
+      if (query.includes('=') || query.includes('contains')) {
+        termQ = query;
+      } else {
+        termQ = `name contains '${query}'`;
+      }
+      q = q ? `${q} and ${termQ}` : termQ;
+    }
+    
+    if (q) {
+      params.q = q;
+    }
+    
     const args = [
       'drive',
       'files',
