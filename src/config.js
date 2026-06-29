@@ -19,10 +19,14 @@ const DEFAULT_MODELS = [
   "openai/gpt-oss-20b:free",
   "qwen/qwen3-next-80b-a3b-instruct:free",
   "google/gemma-4-31b-it:free",
+  "venice/uncensored:free",
   "poolside/laguna-m.1:free",
   "poolside/laguna-xs.2:free",
   
   // Tier 3 — Fallback
+  "liquid/lfm2.5-1.2b-thinking:free",
+  "liquid/lfm2.5-1.2b-instruct:free",
+  "meta-llama/llama-3.2-3b-instruct:free",
   "nvidia/nemotron-3-nano-30b-a3b:free",
   "google/gemma-4-26b-a4b-it:free",
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
