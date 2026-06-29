@@ -3,6 +3,7 @@
 import chalk from 'chalk';
 import prompts from 'prompts';
 import ora from 'ora';
+import readline from 'readline';
 import { runDiagnostics, ensureGwsInstalled } from './doctor.js';
 import { readConfig, writeConfig, setProviderKey, setWorkspaceAllowed, workspaceAllowed, readModels } from './config.js';
 import { initDatabase, createSession, saveMessage, getSessionMessages, getLastSession, getSessions, clearAllSessions, deleteSession, updateSessionName } from './db.js';
@@ -290,6 +291,23 @@ async function handleInteractiveMenu(sessionId) {
   }
 }
 
+function waitForKeypress() {
+  return new Promise((resolve) => {
+    readline.emitKeypressEvents(process.stdin);
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+    }
+    const handler = (str, key) => {
+      if (process.stdin.isTTY) {
+        process.stdin.setRawMode(false);
+      }
+      process.stdin.removeListener('keypress', handler);
+      resolve({ str, key });
+    };
+    process.stdin.on('keypress', handler);
+  });
+}
+
 async function main() {
   // Ensure DB and directories are configured
   initDatabase();
@@ -452,41 +470,38 @@ async function main() {
   // Start chat loop
   while (true) {
     const currentFolder = process.cwd();
-    const userInput = await prompts({
-      type: 'autocomplete',
-      name: 'text',
-      message: `\n${chalk.bold.cyan('☁️  cloudagent')} ${chalk.dim(currentFolder)}\n${chalk.cyan('› ')}`,
-      choices: [
-        { title: '📧 /gmail - Gmail actions', value: '/gmail' },
-        { title: '📁 /drive - Google Drive actions', value: '/drive' },
-        { title: '📅 /calendar - Google Calendar actions', value: '/calendar' },
-        { title: '✅ /tasks - Google Tasks actions', value: '/tasks' },
-        { title: '💻 /filesystem - Filesystem actions', value: '/filesystem' },
-        { title: '🔧 /git - Git/GitHub actions', value: '/git' },
-        { title: '🩺 /doctor - Run diagnostics', value: '/doctor' },
-        { title: '🗑️  /clear - Clear chat history', value: '/clear' },
-        { title: '🚪 /exit - Exit session', value: '/exit' }
-      ],
-      suggest: (input, choices) => {
-        const filtered = choices.filter(c => c.value.toLowerCase().includes(input.toLowerCase()));
-        const trimmed = input.trim();
-        const customChoice = {
-          title: trimmed ? `💬 Ask Agent: "${trimmed}"` : '💬 Ask Agent: (Type your prompt)',
-          value: trimmed
-        };
-        return Promise.resolve([customChoice, ...filtered]);
-      }
-    });
+    process.stdout.write(`\n${chalk.bold.cyan('☁️  cloudagent')} ${chalk.dim(currentFolder)}\n${chalk.cyan('› ')}`);
 
-    let prompt = userInput.text?.trim();
+    const { str, key } = await waitForKeypress();
 
-    if (!prompt) continue;
+    if (key && key.ctrl && key.name === 'c') {
+      console.log(chalk.cyan('\nGoodbye!'));
+      process.exit(0);
+    }
 
-    if (prompt === '/' || prompt === '/menu') {
+    let prompt = '';
+
+    if (str === '/') {
       const selectedPrompt = await handleInteractiveMenu(sessionId);
       if (!selectedPrompt) continue;
       prompt = selectedPrompt;
-    } else if (prompt.startsWith('/')) {
+    } else {
+      if (str) {
+        process.stdin.unshift(Buffer.from(str));
+      }
+      
+      const userInput = await prompts({
+        type: 'text',
+        name: 'text',
+        message: ''
+      });
+      
+      prompt = userInput.text?.trim();
+    }
+
+    if (!prompt) continue;
+
+    if (prompt.startsWith('/')) {
       const parts = prompt.split(' ');
       const cmd = parts[0].substring(1).toLowerCase();
       const categories = ['gmail', 'drive', 'calendar', 'tasks', 'filesystem', 'git'];
