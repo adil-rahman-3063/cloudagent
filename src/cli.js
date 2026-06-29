@@ -11,6 +11,7 @@ import { getToolsSchema, executeTool, REGISTRY } from './tool-registry.js';
 import { PROVIDERS } from './providers/models.js';
 import { tryFormatSuccess } from './formatter.js';
 import path from 'path';
+import fs from 'fs';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -279,8 +280,31 @@ async function main() {
       sessionId = resumePrompt.action;
       const matched = sessions.find(s => s.id === sessionId);
       console.log(chalk.green(`Resumed session: ${matched.name}\n`));
-      
       const messages = getSessionMessages(sessionId);
+      
+      // Restore working directory from last successful file_cd in the session
+      let lastDir = null;
+      for (const msg of messages) {
+        try {
+          const parsed = JSON.parse(msg.content);
+          if (parsed.status === 'success' && parsed.tool === 'file_cd') {
+            const match = parsed.output.match(/Changed working directory to:\s*(.*)/);
+            if (match && match[1]) {
+              lastDir = match[1].trim();
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      if (lastDir && fs.existsSync(lastDir)) {
+        try {
+          process.chdir(lastDir);
+        } catch (e) {
+          // ignore
+        }
+      }
+      
       if (messages && messages.length > 0) {
         // Filter out tool calls, tool results, and system instructions to show only the conversation
         const chatLog = messages
