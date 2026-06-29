@@ -5,7 +5,7 @@ import { gmailList, gmailRead, gmailSend, gmailModifyLabels } from './tools/gmai
 import { driveSearch, driveDownload, driveUpload } from './tools/drive.js';
 import { calendarList, calendarCreate } from './tools/calendar.js';
 import { gitStatus, gitPull, gitCommit, gitPush, githubRepoCreate } from './tools/git.js';
-import { fileList, fileRead, fileWrite, fileDelete, fileCd, fileFindProjects } from './tools/filesystem.js';
+import { fileList, fileRead, fileWrite, fileDelete, fileCd, fileFindProjects, resolveSmartPath } from './tools/filesystem.js';
 import { tasksList, tasksCreate, tasksUpdate } from './tools/tasks.js';
 import { logToolRun, updateToolRun } from './db.js';
 
@@ -73,7 +73,7 @@ export async function executeTool(toolName, args, sessionId, silent = false) {
       const cleanBody = String(args.body || '').replace(/\n/g, '\\n');
       console.log(`Proposed Command: ${chalk.cyan(`/send ${args.to} "${args.subject}" "${cleanBody}"`)}`);
     } else if (toolName === 'file_cd') {
-      const resolvedPath = path.resolve(args.dirPath);
+      const resolvedPath = resolveSmartPath(args.dirPath);
       console.log(`Proposed Target Directory: ${chalk.cyan(resolvedPath)}`);
     } else {
       console.log(`Tool: ${chalk.bold(toolName)}`);

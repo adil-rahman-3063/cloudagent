@@ -40,6 +40,7 @@ This file tracks the testing status of all CloudAgent capabilities.
   - [ ] Create/Write to local files.
   - [ ] Delete local files.
 
+
 - [x] **Git & GitHub**
   - [x] Local git repository initialization.
   - [x] Committing code changes.

@@ -105,6 +105,44 @@ export const fileDelete = {
   }
 };
 
+export function resolveSmartPath(dirPath) {
+  let resolved = path.resolve(dirPath);
+  if (fs.existsSync(resolved)) {
+    return resolved;
+  }
+
+  // Try traversing parent directories
+  let current = process.cwd();
+  while (true) {
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break; // Reached root
+    }
+
+    // 1. Try directly relative to parent (e.g. parent/downloads)
+    const directTry = path.resolve(parent, dirPath);
+    if (fs.existsSync(directTry)) {
+      return directTry;
+    }
+
+    // 2. Try stripping the parent's folder name from the start of dirPath
+    const parentBasename = path.basename(parent).toLowerCase();
+    const normalizedPath = dirPath.replace(/\\/g, '/');
+    const firstPart = normalizedPath.split('/')[0].toLowerCase();
+    if (parentBasename === firstPart) {
+      const remaining = normalizedPath.substring(firstPart.length).replace(/^\/+/, '');
+      const stripTry = path.resolve(parent, remaining);
+      if (fs.existsSync(stripTry)) {
+        return stripTry;
+      }
+    }
+
+    current = parent;
+  }
+
+  return resolved;
+}
+
 export const fileCd = {
   name: 'file_cd',
   description: 'Change the current working directory to navigate to other folders or projects',
@@ -119,7 +157,7 @@ export const fileCd = {
   async execute({ dirPath }) {
     try {
       checkAllowed();
-      const resolvedPath = path.resolve(dirPath);
+      const resolvedPath = resolveSmartPath(dirPath);
       if (!fs.existsSync(resolvedPath)) {
         return { success: false, error: `Directory does not exist: ${dirPath}` };
       }
