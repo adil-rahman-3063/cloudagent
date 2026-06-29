@@ -297,7 +297,9 @@ function waitForKeypress() {
     if (process.stdin.isTTY) {
       process.stdin.setRawMode(true);
     }
+    process.stdin.resume();
     const handler = (str, key) => {
+      process.stdin.pause();
       if (process.stdin.isTTY) {
         process.stdin.setRawMode(false);
       }
