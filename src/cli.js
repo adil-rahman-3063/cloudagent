@@ -187,6 +187,109 @@ async function askSaveAndRenameChat(sessionId) {
   }
 }
 
+async function handleInteractiveSubmenu(service, sessionId, state) {
+  const subchoices = [];
+  if (service === 'gmail') {
+    subchoices.push(
+      { title: '📋 List unread emails (gmail_list)', value: 'gmail_list' },
+      { title: '✉️  Send a new email (gmail_send)', value: 'gmail_send' },
+      { title: '🏷️  Modify labels / Mark as read (gmail_modify_labels)', value: 'gmail_modify_labels' }
+    );
+  } else if (service === 'drive') {
+    subchoices.push(
+      { title: '🔍 Search files/folders (drive_search)', value: 'drive_search' },
+      { title: '📥 Download a file (drive_download)', value: 'drive_download' },
+      { title: '📤 Upload a file (drive_upload)', value: 'drive_upload' }
+    );
+  } else if (service === 'calendar') {
+    subchoices.push(
+      { title: '📋 List agenda/schedule (calendar_list)', value: 'calendar_list' },
+      { title: '➕ Create a calendar event (calendar_create)', value: 'calendar_create' }
+    );
+  } else if (service === 'tasks') {
+    subchoices.push(
+      { title: '📋 List tasks (tasks_list)', value: 'tasks_list' },
+      { title: '➕ Create a task (tasks_create)', value: 'tasks_create' },
+      { title: '✏️  Update/Complete a task (tasks_update)', value: 'tasks_update' }
+    );
+  } else if (service === 'filesystem') {
+    subchoices.push(
+      { title: '📋 List files in directory (file_list)', value: 'file_list' },
+      { title: '📖 Read local file contents (file_read)', value: 'file_read' },
+      { title: '✏️  Write content to file (file_write)', value: 'file_write' },
+      { title: '❌ Delete local file (file_delete)', value: 'file_delete' },
+      { title: '📁 Change directory (file_cd)', value: 'file_cd' },
+      { title: '🔍 Find project folders (file_find_projects)', value: 'file_find_projects' }
+    );
+  } else if (service === 'git') {
+    subchoices.push(
+      { title: '📋 Git status (git_status)', value: 'git_status' },
+      { title: '📥 Git pull (git_pull)', value: 'git_pull' },
+      { title: '✏️  Git commit changes (git_commit)', value: 'git_commit' },
+      { title: '📤 Git push changes (git_push)', value: 'git_push' },
+      { title: '➕ Create GitHub repository (github_repo_create)', value: 'github_repo_create' }
+    );
+  }
+
+  subchoices.push(
+    { title: '⌨️  Type custom prompt...', value: 'custom' },
+    { title: '❌ Cancel', value: 'cancel' }
+  );
+
+  const subSelect = await prompts({
+    type: 'select',
+    name: 'action',
+    message: `Configure action for ${service.toUpperCase()}:`,
+    choices: subchoices
+  });
+
+  if (!subSelect.action || subSelect.action === 'cancel') {
+    return null;
+  }
+
+  if (subSelect.action === 'custom') {
+    const customPrompt = await prompts({
+      type: 'text',
+      name: 'text',
+      message: `Type custom prompt for ${service.toUpperCase()}:`
+    });
+    if (customPrompt.text?.trim()) {
+      return `${customPrompt.text.trim()} (Category: ${service})`;
+    }
+    return null;
+  }
+
+  return `Execute ${subSelect.action} tool`;
+}
+
+async function handleInteractiveMenu(sessionId, state) {
+  while (true) {
+    const mainSelect = await prompts({
+      type: 'select',
+      name: 'service',
+      message: 'Choose a service category:',
+      choices: [
+        { title: '📧 Gmail (Emails)', value: 'gmail' },
+        { title: '📁 Google Drive', value: 'drive' },
+        { title: '📅 Google Calendar', value: 'calendar' },
+        { title: '✅ Google Tasks', value: 'tasks' },
+        { title: '💻 Local Filesystem', value: 'filesystem' },
+        { title: '🔧 Git & GitHub', value: 'git' },
+        { title: '❌ Cancel', value: 'cancel' }
+      ]
+    });
+
+    if (!mainSelect.service || mainSelect.service === 'cancel') {
+      return null;
+    }
+
+    const selected = await handleInteractiveSubmenu(mainSelect.service, sessionId, state);
+    if (selected) {
+      return selected;
+    }
+  }
+}
+
 async function main() {
   // Ensure DB and directories are configured
   initDatabase();
@@ -358,6 +461,21 @@ async function main() {
     let prompt = userInput.text?.trim();
 
     if (!prompt) continue;
+
+    if (prompt === '/' || prompt === '/menu') {
+      const selectedPrompt = await handleInteractiveMenu(sessionId, state);
+      if (!selectedPrompt) continue;
+      prompt = selectedPrompt;
+    } else if (prompt.startsWith('/')) {
+      const parts = prompt.split(' ');
+      const cmd = parts[0].substring(1).toLowerCase();
+      const categories = ['gmail', 'drive', 'calendar', 'tasks', 'filesystem', 'git'];
+      if (categories.includes(cmd)) {
+        const selectedPrompt = await handleInteractiveSubmenu(cmd, sessionId, state);
+        if (!selectedPrompt) continue;
+        prompt = selectedPrompt;
+      }
+    }
 
     // Check for ambiguous "drive" references
     const lowerPrompt = prompt.toLowerCase();
