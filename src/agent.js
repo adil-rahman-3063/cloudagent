@@ -77,27 +77,34 @@ export async function askAgent(chatHistory, tools, onModelAttempt) {
 
   // Normalize the response if the LLM gets confused and outputs tool: "text" / tool: "reply"
   if (response && response.tool) {
-    const toolName = response.tool.toLowerCase();
-    if (toolName === 'text' || toolName === 'reply' || toolName === 'message' || toolName === 'none' || toolName === 'null') {
-      const textVal = response.text || response.arguments?.text || response.arguments?.message || response.arguments?.reply || '';
-      delete response.tool;
-      delete response.arguments;
-      response.text = textVal;
-    } else if (toolName === 'google_tasks_list' || toolName === 'google_task_list' || toolName === 'task_list') {
-      response.tool = 'tasks_list';
-    } else if (toolName === 'google_tasks_create' || toolName === 'google_task_create' || toolName === 'task_create') {
-      response.tool = 'tasks_create';
-    } else if (toolName === 'google_tasks_update' || toolName === 'google_task_update' || toolName === 'task_update' || toolName === 'google_tasks_complete' || toolName === 'tasks_complete') {
-      response.tool = 'tasks_update';
-    } else if (toolName === 'change_directory' || toolName === 'change_dir' || toolName === 'cd') {
-      response.tool = 'file_cd';
-    } else if (toolName === 'find_projects' || toolName === 'list_projects' || toolName === 'get_projects') {
-      response.tool = 'file_find_projects';
-    } else if (toolName === 'gmail_mark_as_read' || toolName === 'gmail_modify_labels' || toolName === 'gmail_mark_read') {
-      response.tool = 'gmail_modify_labels';
-      if (toolName === 'gmail_mark_as_read' || toolName === 'gmail_mark_read') {
-        response.arguments = response.arguments || {};
-        response.arguments.removeLabelIds = ['UNREAD'];
+    if (typeof response.tool === 'object' && response.tool !== null) {
+      if (response.tool.name) {
+        response.tool = response.tool.name;
+      }
+    }
+    if (typeof response.tool === 'string') {
+      const toolName = response.tool.toLowerCase();
+      if (toolName === 'text' || toolName === 'reply' || toolName === 'message' || toolName === 'none' || toolName === 'null') {
+        const textVal = response.text || response.arguments?.text || response.arguments?.message || response.arguments?.reply || '';
+        delete response.tool;
+        delete response.arguments;
+        response.text = textVal;
+      } else if (toolName === 'google_tasks_list' || toolName === 'google_task_list' || toolName === 'task_list') {
+        response.tool = 'tasks_list';
+      } else if (toolName === 'google_tasks_create' || toolName === 'google_task_create' || toolName === 'task_create') {
+        response.tool = 'tasks_create';
+      } else if (toolName === 'google_tasks_update' || toolName === 'google_task_update' || toolName === 'task_update' || toolName === 'google_tasks_complete' || toolName === 'tasks_complete') {
+        response.tool = 'tasks_update';
+      } else if (toolName === 'change_directory' || toolName === 'change_dir' || toolName === 'cd') {
+        response.tool = 'file_cd';
+      } else if (toolName === 'find_projects' || toolName === 'list_projects' || toolName === 'get_projects') {
+        response.tool = 'file_find_projects';
+      } else if (toolName === 'gmail_mark_as_read' || toolName === 'gmail_modify_labels' || toolName === 'gmail_mark_read') {
+        response.tool = 'gmail_modify_labels';
+        if (toolName === 'gmail_mark_as_read' || toolName === 'gmail_mark_read') {
+          response.arguments = response.arguments || {};
+          response.arguments.removeLabelIds = ['UNREAD'];
+        }
       }
     }
   }
