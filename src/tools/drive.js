@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs';
 import { workspaceAllowed, execGws } from '../config.js';
 import { tryFormatDrive } from '../formatter.js';
 
@@ -107,6 +108,7 @@ export const driveDownload = {
     try {
       if (destination) checkAllowed();
       let targetId = fileId;
+      let filename = fileId;
 
       // Resolve name to ID if it doesn't look like a standard Drive ID
       if (fileId && (fileId.includes('.') || fileId.includes(' ') || fileId.length < 25)) {
@@ -126,18 +128,66 @@ export const driveDownload = {
           const files = data.files || [];
           if (files.length > 0) {
             targetId = files[0].id;
+            filename = files[0].name;
           }
         } catch (e) {
           // ignore lookup errors
         }
+      } else {
+        // Query filename for standard ID
+        const params = { q: `id = '${fileId}'` };
+        const listArgs = [
+          'drive',
+          'files',
+          'list',
+          '--params',
+          JSON.stringify(params),
+          '--format',
+          'json'
+        ];
+        try {
+          const stdout = execGws(listArgs).toString();
+          const data = JSON.parse(stdout);
+          const files = data.files || [];
+          if (files.length > 0) {
+            filename = files[0].name;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // Check if destination is requested as "downloads"
+      let finalDest = destination || '';
+      if (finalDest.toLowerCase() === 'downloads' || finalDest.toLowerCase() === 'downloads folder') {
+        const homeDir = process.env.USERPROFILE || process.env.HOME || '';
+        finalDest = path.join(homeDir, 'Downloads');
       }
 
       const args = ['drive', 'files', 'download', targetId];
-      if (destination) {
-        args.push('--destination', path.resolve(destination));
+      let resolvedPath = '';
+
+      if (finalDest) {
+        try {
+          if (fs.existsSync(finalDest) && fs.statSync(finalDest).isDirectory()) {
+            resolvedPath = path.resolve(path.join(finalDest, filename));
+          } else {
+            resolvedPath = path.resolve(finalDest);
+          }
+        } catch (e) {
+          resolvedPath = path.resolve(finalDest);
+        }
+        args.push('--destination', resolvedPath);
+      } else {
+        resolvedPath = path.resolve(filename);
+        args.push('--destination', resolvedPath);
       }
+
       const stdout = execGws(args).toString();
-      return { success: true, output: stdout };
+      return { 
+        success: true, 
+        output: `${stdout.trim()}\n\nVerified local download path: ${resolvedPath}`
+      };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
     }

@@ -578,7 +578,7 @@ async function main() {
       ? chalk.dim(`GWS Account: ${chalk.green(gwsUserEmail)}`) 
       : chalk.dim(`GWS Account: ${chalk.red('Not logged in · Please run gws auth login')}`);
     
-    console.log(` ${loginStatus}`);
+    console.log(` Workspace: ${chalk.cyan(currentFolder)} | ${loginStatus}`);
     console.log(` ${chalk.bold.cyan('❯')} `);
     console.log(chalk.dim('  ? for shortcuts · / for menu · Ctrl+C to exit'));
     
