@@ -522,10 +522,10 @@ async function main() {
 
   // Check GWS authentication status on startup
   try {
-    const statusOutput = execFileSync('gws', ['auth', 'status'], { stdio: 'pipe' }).toString();
+    const statusOutput = execFileSync('gws', ['auth', 'status'], { stdio: 'pipe', shell: true }).toString();
     const statusObj = JSON.parse(statusOutput);
-    if (statusObj && statusObj.token_valid === true) {
-      gwsUserEmail = statusObj.user || '';
+    if (statusObj && (statusObj.token_valid === true || statusObj.status === 'success')) {
+      gwsUserEmail = statusObj.user || statusObj.account || '';
     }
   } catch (e) {
     // ignore
