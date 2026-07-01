@@ -13,7 +13,7 @@ import { PROVIDERS } from './providers/models.js';
 import { tryFormatSuccess } from './formatter.js';
 import path from 'path';
 import fs from 'fs';
-import { execFileSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -522,7 +522,7 @@ async function main() {
 
   // Check GWS authentication status on startup
   try {
-    const statusOutput = execFileSync('gws', ['auth', 'status'], { stdio: 'pipe', shell: true }).toString();
+    const statusOutput = execSync('gws auth status', { stdio: 'pipe' }).toString();
     const statusObj = JSON.parse(statusOutput);
     if (statusObj && (statusObj.token_valid === true || statusObj.status === 'success')) {
       gwsUserEmail = statusObj.user || statusObj.account || '';
