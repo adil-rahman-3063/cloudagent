@@ -808,6 +808,7 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
 
   if (!state.spinner) {
     state.startTime = Date.now();
+    state.currentModelName = '';
     state.spinner = ora({
       text: 'Thinking... (0s)',
       spinner: {
@@ -820,7 +821,8 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
     state.intervalId = setInterval(() => {
       if (state.spinner) {
         const secs = Math.floor((Date.now() - state.startTime) / 1000);
-        state.spinner.text = `Thinking... (${secs}s)`;
+        const modelSuffix = state.currentModelName ? ` [${state.currentModelName}]` : '';
+        state.spinner.text = `Thinking...${modelSuffix} (${secs}s)`;
       }
     }, 1000);
   } else {
@@ -832,7 +834,13 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
     const tools = getToolsSchema(history);
 
     // Call LLM
-    const response = await askAgent(history, tools);
+    const response = await askAgent(history, tools, (modelName) => {
+      state.currentModelName = modelName;
+      if (state.spinner) {
+        const secs = Math.floor((Date.now() - state.startTime) / 1000);
+        state.spinner.text = `Thinking... [${modelName}] (${secs}s)`;
+      }
+    });
 
     if (response.thought && !state.isSilent) {
       const nextTool = response.tool ? REGISTRY[response.tool] : null;
@@ -840,6 +848,7 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
       if (!isNextToolSafe) {
         stopSpinner(state);
         state.startTime = Date.now();
+        state.currentModelName = '';
         state.spinner = ora({
           text: 'Thinking... (0s)',
           spinner: {
@@ -852,7 +861,8 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
         state.intervalId = setInterval(() => {
           if (state.spinner) {
             const secs = Math.floor((Date.now() - state.startTime) / 1000);
-            state.spinner.text = `Thinking... (${secs}s)`;
+            const modelSuffix = state.currentModelName ? ` [${state.currentModelName}]` : '';
+            state.spinner.text = `Thinking...${modelSuffix} (${secs}s)`;
           }
         }, 1000);
       }

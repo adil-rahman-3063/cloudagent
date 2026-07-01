@@ -31,7 +31,7 @@ export function getActiveProvider() {
   }
 }
 
-export async function askAgent(chatHistory, tools) {
+export async function askAgent(chatHistory, tools, onModelAttempt) {
   const provider = getActiveProvider();
   
   // Inject current date/time context into the latest user message to prevent recency/resume bias
@@ -73,7 +73,7 @@ export async function askAgent(chatHistory, tools) {
     sanitized.push(msg);
   }
 
-  const response = await provider.generateToolCall(sanitized, tools);
+  const response = await provider.generateToolCall(sanitized, tools, onModelAttempt);
 
   // Normalize the response if the LLM gets confused and outputs tool: "text" / tool: "reply"
   if (response && response.tool) {

@@ -3,7 +3,7 @@ import { readModels, readConfig, writeConfig } from '../config.js';
 import chalk from 'chalk';
 
 export class OpenRouterClient extends Provider {
-  async generateToolCall(chatHistory, tools) {
+  async generateToolCall(chatHistory, tools, onModelAttempt) {
     const systemPrompt = `You are CloudAgent, a helpful, local-first AI assistant for Google Workspace and local systems.
 You translate natural language requests into structured tool calls.
 You MUST respond ONLY with a raw JSON object (no markdown code blocks, no backticks, no trailing characters) matching one of the following schemas:
@@ -64,9 +64,12 @@ CRITICAL: When presenting dates and times to the user, always convert them from 
     let lastErrorMsg = 'Unknown error';
 
     for (const currentModel of modelsToTry) {
+      if (onModelAttempt) {
+        onModelAttempt(currentModel);
+      }
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
 
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
