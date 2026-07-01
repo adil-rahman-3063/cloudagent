@@ -380,8 +380,14 @@ async function main() {
   }
 
   // Regular startup
-  console.log(chalk.bold.cyan('\n☁️  CloudAgent CLI'));
-  console.log(chalk.dim('Your local AI agent for Google Workspace & local systems\n'));
+  console.log('\n' +
+    chalk.hex('#00ffff').bold('  ▄████▄   ██       ██████  ██    ██ ██████   █████   ██████  ███████ ███    ██ ████████ \n') +
+    chalk.hex('#00d7ff').bold(' ██▀      ██       ██    ██ ██    ██ ██   ██ ██   ██ ██       ██      ████   ██    ██    \n') +
+    chalk.hex('#00afff').bold(' ██       ██       ██    ██ ██    ██ ██   ██ ███████ ██   ███ █████   ██ ██  ██    ██    \n') +
+    chalk.hex('#0087ff').bold(' ██▄      ██       ██    ██ ██    ██ ██   ██ ██   ██ ██    ██ ██      ██  ██ ██    ██    \n') +
+    chalk.hex('#005fff').bold('  ▀████▀  ███████   ██████   ▀████▀  ██████  ██   ██  ██████  ███████ ██   ████    ██    ')
+  );
+  console.log(chalk.bold.dim('                     Your local AI agent for Google Workspace & local systems\n'));
 
   // Onboarding gws check
   await ensureGwsInstalled();
