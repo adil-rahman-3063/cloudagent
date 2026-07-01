@@ -68,14 +68,37 @@ export function tryFormatGmail(stdout) {
 export function tryFormatDrive(stdout) {
   try {
     const data = JSON.parse(stdout);
-    const files = data.files || [];
-    const headers = ['Name', 'MimeType', 'ID'];
-    const rows = files.map(f => [
-      truncate(f.name, 35),
-      truncate(f.mimeType, 25),
-      f.id || ''
-    ]);
-    return formatBoxedTable('Google Drive Files', headers, rows);
+    const filesList = data.files || [];
+    
+    if (filesList.length === 0) {
+      return '(No files or folders found)';
+    }
+
+    const folders = [];
+    const files = [];
+
+    for (const f of filesList) {
+      const isFolder = f.mimeType === 'application/vnd.google-apps.folder';
+      if (isFolder) {
+        folders.push(f.name);
+      } else {
+        files.push(f.name);
+      }
+    }
+
+    // Sort alphabetically (case-insensitive)
+    folders.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    files.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+    let output = '';
+    if (folders.length > 0) {
+      output += '**Folders:**\n' + folders.map(name => `- ${name}`).join('\n') + '\n\n';
+    }
+    if (files.length > 0) {
+      output += '**Files:**\n' + files.map(name => `- ${name}`).join('\n');
+    }
+
+    return output.trim();
   } catch (e) {
     return stdout;
   }
