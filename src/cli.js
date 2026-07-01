@@ -202,7 +202,7 @@ async function handleInteractiveSubmenu(service, sessionId) {
     );
   } else if (service === 'drive') {
     subchoices.push(
-      { title: '🔍 Search files/folders (drive_search)', value: 'drive_search' },
+      { title: '📋 List files/folders (drive_list)', value: 'drive_list' },
       { title: '📥 Download a file (drive_download)', value: 'drive_download' },
       { title: '📤 Upload a file (drive_upload)', value: 'drive_upload' }
     );
@@ -264,7 +264,32 @@ async function handleInteractiveSubmenu(service, sessionId) {
     return null;
   }
 
-  return `Execute ${subSelect.action} tool`;
+  const promptMappings = {
+    gmail_list: 'List my unread emails',
+    gmail_send: 'Draft and send a new email',
+    gmail_modify_labels: 'Modify labels / Mark email as read',
+    drive_list: 'List all files and folders in my Google Drive',
+    drive_download: 'Download a file from my Google Drive',
+    drive_upload: 'Upload a file to my Google Drive',
+    calendar_list: 'List my calendar schedule and agenda',
+    calendar_create: 'Create a new calendar event',
+    tasks_list: 'List my tasks',
+    tasks_create: 'Create a new task',
+    tasks_update: 'Update or complete a task',
+    file_list: 'List files in the current local directory',
+    file_read: 'Read contents of a local file',
+    file_write: 'Write content to a local file',
+    file_delete: 'Delete a local file',
+    file_cd: 'Change current local directory path',
+    file_find_projects: 'Find project folders in workspace',
+    git_status: 'Check git status',
+    git_pull: 'Pull latest changes from git repository',
+    git_commit: 'Commit recent changes to git',
+    git_push: 'Push local commits to GitHub repository',
+    github_repo_create: 'Create a new repository on GitHub'
+  };
+
+  return promptMappings[subSelect.action] || `Execute ${subSelect.action} tool`;
 }
 
 async function handleInteractiveMenu(sessionId) {
