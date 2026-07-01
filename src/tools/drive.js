@@ -177,10 +177,10 @@ export const driveDownload = {
         } catch (e) {
           resolvedPath = path.resolve(finalDest);
         }
-        args.push('--destination', resolvedPath);
+        args.push('--output', resolvedPath);
       } else {
         resolvedPath = path.resolve(filename);
-        args.push('--destination', resolvedPath);
+        args.push('--output', resolvedPath);
       }
 
       const stdout = execGws(args).toString();
