@@ -73,7 +73,37 @@ export async function askAgent(chatHistory, tools, onModelAttempt) {
     sanitized.push(msg);
   }
 
-  const response = await provider.generateToolCall(sanitized, tools, onModelAttempt);
+  let response = await provider.generateToolCall(sanitized, tools, onModelAttempt);
+
+  // If the response parsed is an object but lacks tool and text keys, check if it's direct arguments
+  if (response && typeof response === 'object' && !response.tool && !response.text) {
+    const keys = Object.keys(response);
+    if (keys.includes('fileId') || keys.includes('destination')) {
+      response = {
+        thought: 'Normalizing direct tool arguments to drive_download call',
+        tool: 'drive_download',
+        arguments: response
+      };
+    } else if (keys.includes('query') || keys.includes('folder')) {
+      response = {
+        thought: 'Normalizing direct tool arguments to drive_search call',
+        tool: 'drive_search',
+        arguments: response
+      };
+    } else if (keys.includes('to') && (keys.includes('subject') || keys.includes('body'))) {
+      response = {
+        thought: 'Normalizing direct tool arguments to gmail_send call',
+        tool: 'gmail_send',
+        arguments: response
+      };
+    } else if (keys.includes('path') && keys.includes('content')) {
+      response = {
+        thought: 'Normalizing direct tool arguments to file_write call',
+        tool: 'file_write',
+        arguments: response
+      };
+    }
+  }
 
   // Normalize the response if the LLM gets confused and outputs tool: "text" / tool: "reply"
   if (response && response.tool) {
