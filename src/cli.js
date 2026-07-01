@@ -13,9 +13,13 @@ import { PROVIDERS } from './providers/models.js';
 import { tryFormatSuccess } from './formatter.js';
 import path from 'path';
 import fs from 'fs';
+import { execFileSync } from 'child_process';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
+
+// Global status cache
+let gwsUserEmail = '';
 
 function displayHelp() {
   console.log(chalk.bold.cyan('\n🛠️  CloudAgent Capabilities & Tools'));
@@ -310,6 +314,57 @@ function waitForKeypress() {
   });
 }
 
+function drawDashboard() {
+  const colWidth = 47;
+  const config = readConfig();
+  const providerMeta = PROVIDERS[config.active_provider || 'openrouter'];
+  const activeModel = config.active_model || providerMeta?.defaultModel || 'openrouter/free';
+  const cwd = process.cwd();
+
+  const pad = (str, len) => {
+    const rawLen = str.replace(/\u001b\[\d+m/g, '').length;
+    return str + ' '.repeat(Math.max(0, len - rawLen));
+  };
+
+  const borderTop    = '┌' + '─'.repeat(colWidth) + '┬' + '─'.repeat(colWidth) + '┐';
+  const borderBottom = '└' + '─'.repeat(colWidth) + '┴' + '─'.repeat(colWidth) + '┘';
+
+  const leftRows = [
+    chalk.bold(' Accessing workspace:'),
+    ` ${cwd.length > colWidth - 2 ? '...' + cwd.substring(cwd.length - (colWidth - 5)) : cwd}`,
+    '',
+    chalk.bold(' Active model:'),
+    ` ${activeModel.length > colWidth - 2 ? activeModel.substring(0, colWidth - 5) + '...' : activeModel}`
+  ];
+
+  const rightRows = [
+    chalk.bold(' Available Capabilities:'),
+    ` ${chalk.cyan('•')} Gmail (read, send, labels)`,
+    ` ${chalk.cyan('•')} Google Drive & Local FS`,
+    ` ${chalk.cyan('•')} Google Calendar (agenda)`,
+    ` ${chalk.cyan('•')} Google Tasks & Git/GitHub`
+  ];
+
+  console.log(chalk.cyan(borderTop));
+  for (let i = 0; i < 5; i++) {
+    const left = pad(leftRows[i] || '', colWidth);
+    const right = pad(rightRows[i] || '', colWidth);
+    console.log(`${chalk.cyan('│')}${left}${chalk.cyan('│')}${right}${chalk.cyan('│')}`);
+  }
+  console.log(chalk.cyan(borderBottom));
+}
+
+function stopSpinner(state) {
+  if (state.intervalId) {
+    clearInterval(state.intervalId);
+    state.intervalId = null;
+  }
+  if (state.spinner) {
+    state.spinner.stop();
+    state.spinner = null;
+  }
+}
+
 async function main() {
   // Ensure DB and directories are configured
   initDatabase();
@@ -465,14 +520,35 @@ async function main() {
     createSession(sessionId);
   }
 
-  console.log(chalk.dim('Type your prompt, "what can i do" / "/help" for capabilities, "/doctor" for diagnostics, "/exit" to quit.'));
-  console.log(chalk.dim('Example: "List my 3 most recent emails" or "/send email@example.com \'Subject\' \'Body\'"'));
+  // Check GWS authentication status on startup
+  try {
+    const statusOutput = execFileSync('gws', ['auth', 'status'], { stdio: 'pipe' }).toString();
+    const statusObj = JSON.parse(statusOutput);
+    if (statusObj && statusObj.token_valid === true) {
+      gwsUserEmail = statusObj.user || '';
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Draw dashboard
+  console.log('');
+  drawDashboard();
   console.log('');
 
   // Start chat loop
   while (true) {
     const currentFolder = process.cwd();
-    process.stdout.write(`\n${chalk.bold.cyan('☁️  cloudagent')} ${chalk.dim(currentFolder)}\n${chalk.cyan('› ')}`);
+    
+    console.log(chalk.dim('─'.repeat(98)));
+    
+    // Status info line right above prompt
+    const loginStatus = gwsUserEmail 
+      ? chalk.dim(`GWS Account: ${chalk.green(gwsUserEmail)}`) 
+      : chalk.dim(`GWS Account: ${chalk.red('Not logged in · Please run gws auth login')}`);
+    
+    console.log(` ${loginStatus}`);
+    process.stdout.write(` ${chalk.bold.cyan('❯')} `);
 
     const { str, key } = await waitForKeypress();
 
@@ -502,6 +578,10 @@ async function main() {
     }
 
     if (!prompt) continue;
+
+    console.log(chalk.dim('─'.repeat(98)));
+    console.log(chalk.dim('  ? for shortcuts · / for menu · Ctrl+C to exit'));
+    console.log(chalk.dim('─'.repeat(98)));
 
     if (prompt.startsWith('/')) {
       const parts = prompt.split(' ');
@@ -665,9 +745,24 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
   saveMessage(sessionId, 'user', userPrompt);
 
   if (!state.spinner) {
-    state.spinner = ora('CloudAgent thinking...').start();
+    state.startTime = Date.now();
+    state.spinner = ora({
+      text: 'Thinking... (0s)',
+      spinner: {
+        interval: 150,
+        frames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+      },
+      color: 'cyan'
+    }).start();
+
+    state.intervalId = setInterval(() => {
+      if (state.spinner) {
+        const secs = Math.floor((Date.now() - state.startTime) / 1000);
+        state.spinner.text = `Thinking... (${secs}s)`;
+      }
+    }, 1000);
   } else {
-    state.spinner.text = 'CloudAgent thinking...';
+    state.spinner.text = 'Thinking...';
   }
   
   try {
@@ -681,11 +776,23 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
       const nextTool = response.tool ? REGISTRY[response.tool] : null;
       const isNextToolSafe = nextTool && nextTool.risk === 'safe';
       if (!isNextToolSafe) {
-        if (state.spinner) {
-          state.spinner.stop();
-          state.spinner = null;
-        }
-        state.spinner = ora('CloudAgent thinking...').start();
+        stopSpinner(state);
+        state.startTime = Date.now();
+        state.spinner = ora({
+          text: 'Thinking... (0s)',
+          spinner: {
+            interval: 150,
+            frames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+          },
+          color: 'cyan'
+        }).start();
+
+        state.intervalId = setInterval(() => {
+          if (state.spinner) {
+            const secs = Math.floor((Date.now() - state.startTime) / 1000);
+            state.spinner.text = `Thinking... (${secs}s)`;
+          }
+        }, 1000);
       }
     }
 
@@ -702,6 +809,10 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
 
       if (isSafe) {
         state.isSilent = true;
+        if (state.intervalId) {
+          clearInterval(state.intervalId);
+          state.intervalId = null;
+        }
         if (state.spinner) {
           let toolDesc = `Running ${response.tool}...`;
           if (response.tool.startsWith('gmail_')) {
@@ -735,10 +846,7 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
         }
       } else {
         // Non-safe tool (confirm / high risk)
-        if (state.spinner) {
-          state.spinner.stop();
-          state.spinner = null;
-        }
+        stopSpinner(state);
         state.isSilent = false;
 
         console.log(chalk.cyan(`\n🛠️ AI triggered tool: ${chalk.bold(response.tool)}`));
@@ -763,20 +871,14 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
             error: toolResult.error 
           }));
           if (toolResult.error === 'Execution rejected by user') {
-            if (state.spinner) {
-              state.spinner.stop();
-              state.spinner = null;
-            }
+            stopSpinner(state);
             return;
           }
           await runAgentStep(sessionId, `Tool execution failed for ${response.tool}: ${toolResult.error} [System Instruction: The tool execution failed. Please report the error to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`, state);
         }
       }
     } else if (response.text) {
-      if (state.spinner) {
-        state.spinner.stop();
-        state.spinner = null;
-      }
+      stopSpinner(state);
       console.log(`\n${chalk.bold.cyan('🤖 Agent:')} ${response.text}\n`);
       saveMessage(sessionId, 'assistant', response.text);
     } else if (response.thought) {
@@ -785,19 +887,13 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
       saveMessage(sessionId, 'assistant', JSON.stringify({ thought: response.thought }));
       await runAgentStep(sessionId, "You only provided a 'thought'. Please output a valid JSON containing either a 'tool' to execute or a 'text' response for the user.", state);
     } else {
-      if (state.spinner) {
-        state.spinner.stop();
-        state.spinner = null;
-      }
+      stopSpinner(state);
       console.log(chalk.red('\nReceived invalid or empty response format from AI.'));
       console.log(chalk.dim(`Raw parsed response: ${JSON.stringify(response)}`));
     }
 
   } catch (error) {
-    if (state.spinner) {
-      state.spinner.stop();
-      state.spinner = null;
-    }
+    stopSpinner(state);
     console.error(chalk.red(`\nError: ${error.message}`));
   }
 }
