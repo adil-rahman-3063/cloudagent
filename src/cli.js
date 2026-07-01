@@ -548,11 +548,18 @@ async function main() {
       : chalk.dim(`GWS Account: ${chalk.red('Not logged in · Please run gws auth login')}`);
     
     console.log(` ${loginStatus}`);
-    process.stdout.write(` ${chalk.bold.cyan('❯')} `);
+    console.log(` ${chalk.bold.cyan('❯')} `);
+    console.log(chalk.dim('  ? for shortcuts · / for menu · Ctrl+C to exit'));
+    
+    // Move cursor up 2 lines and after " ❯ "
+    readline.moveCursor(process.stdout, 0, -2);
+    readline.cursorTo(process.stdout, 4);
 
     const { str, key } = await waitForKeypress();
 
     if (key && key.ctrl && key.name === 'c') {
+      // Move cursor below the footer before exiting
+      readline.moveCursor(process.stdout, 0, 2);
       console.log(chalk.cyan('\nGoodbye!'));
       process.exit(0);
     }
@@ -560,6 +567,11 @@ async function main() {
     let prompt = '';
 
     if (str === '/') {
+      // Clear the shortcuts footer line
+      readline.moveCursor(process.stdout, 0, 2);
+      readline.clearLine(process.stdout, 0);
+      readline.moveCursor(process.stdout, 0, -2);
+
       const selectedPrompt = await handleInteractiveMenu(sessionId);
       if (!selectedPrompt) continue;
       prompt = selectedPrompt;
@@ -575,13 +587,14 @@ async function main() {
       });
       
       prompt = userInput.text?.trim();
+
+      // Clear the shortcuts footer line
+      readline.moveCursor(process.stdout, 0, 1);
+      readline.clearLine(process.stdout, 0);
+      readline.moveCursor(process.stdout, 0, -1);
     }
 
     if (!prompt) continue;
-
-    console.log(chalk.dim('─'.repeat(98)));
-    console.log(chalk.dim('  ? for shortcuts · / for menu · Ctrl+C to exit'));
-    console.log(chalk.dim('─'.repeat(98)));
 
     if (prompt.startsWith('/')) {
       const parts = prompt.split(' ');
