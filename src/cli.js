@@ -566,6 +566,8 @@ async function main() {
     if (key && key.ctrl && key.name === 'c') {
       // Move cursor below the footer before exiting
       readline.moveCursor(process.stdout, 0, 2);
+      console.log('');
+      await askSaveAndRenameChat(sessionId);
       console.log(chalk.cyan('\nGoodbye!'));
       process.exit(0);
     }
@@ -652,6 +654,22 @@ async function main() {
       if (confirmClear.value) {
         clearAllSessions();
         console.log(chalk.green('All chat sessions and history deleted successfully.'));
+        sessionId = 'session_' + Date.now();
+        createSession(sessionId);
+      }
+      continue;
+    }
+
+    if (prompt === '/delete') {
+      const confirmDelete = await prompts({
+        type: 'confirm',
+        name: 'value',
+        message: chalk.red('Are you sure you want to delete the current chat session?'),
+        initial: false
+      });
+      if (confirmDelete.value) {
+        deleteSession(sessionId);
+        console.log(chalk.green('Current chat session deleted successfully.'));
         sessionId = 'session_' + Date.now();
         createSession(sessionId);
       }
