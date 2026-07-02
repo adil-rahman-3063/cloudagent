@@ -183,6 +183,33 @@ export function tryFormatSuccess(toolName, stdout) {
       }
       return output;
     }
+
+    // Universal JSON Formatter Fallback
+    if (resObj && typeof resObj === 'object') {
+      if (Array.isArray(resObj)) {
+        return resObj.map(item => {
+          if (typeof item === 'object') {
+            return Object.entries(item).map(([k, v]) => `  - ${chalk.bold(k)}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
+          }
+          return `  - ${item}`;
+        }).join('\n\n');
+      } else {
+        const lines = [];
+        for (const [key, value] of Object.entries(resObj)) {
+          if (value !== null && value !== undefined) {
+            if (typeof value === 'object') {
+              lines.push(`  - ${chalk.bold(key)}: ${JSON.stringify(value)}`);
+            } else {
+              lines.push(`  - ${chalk.bold(key)}: ${value}`);
+            }
+          }
+        }
+        if (lines.length > 0) {
+          return lines.join('\n');
+        }
+      }
+    }
+
     return stdout;
   } catch (e) {
     return stdout;
