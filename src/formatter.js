@@ -141,16 +141,22 @@ export function tryFormatSuccess(toolName, stdout) {
   try {
     const resObj = JSON.parse(stdout);
     if (toolName === 'gmail_send' && resObj.id) {
-      return chalk.green(`\n✓ Email sent successfully! (ID: ${resObj.id})`);
+      return chalk.green(`✓ Email sent successfully! (ID: ${resObj.id})`);
     }
     if (toolName === 'calendar_create' && resObj.id) {
-      return chalk.green(`\n✓ Calendar event created successfully! (ID: ${resObj.id})`);
+      return chalk.green(`✓ Calendar event created successfully! (ID: ${resObj.id})`);
     }
     if (toolName === 'tasks_create' && resObj.id) {
-      return chalk.green(`\n✓ Task created successfully! (ID: ${resObj.id})`);
+      return chalk.green(`✓ Task created successfully! (ID: ${resObj.id})`);
+    }
+    if (toolName === 'tasks_update' && resObj.id) {
+      return chalk.green(`✓ Task updated successfully! (Title: "${resObj.title || ''}")`);
+    }
+    if (toolName === 'drive_upload' && resObj.id) {
+      return chalk.green(`✓ File uploaded successfully! (File: "${resObj.name || ''}", ID: ${resObj.id || ''})`);
     }
     if (toolName === 'gmail_modify_labels') {
-      return chalk.green(`\n✓ Email labels updated successfully!`);
+      return chalk.green(`✓ Email labels updated successfully!`);
     }
     if (toolName === 'file_list') {
       const { directories = [], files = [] } = resObj;

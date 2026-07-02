@@ -993,23 +993,11 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
 
           if (state.isMenuTriggered || isActionTool || !isMultiStep) {
             stopSpinner(state);
-            let agentText = toolResult.output;
+            let agentText = tryFormatSuccess(response.tool, toolResult.output);
             if (response.tool === 'drive_download') {
               const lines = toolResult.output.split('\n');
               const pathLine = lines.find(l => l.includes('Verified local download path:'));
               agentText = pathLine ? `File downloaded successfully!\n${pathLine}` : `File downloaded successfully!`;
-            } else if (response.tool === 'gmail_send') {
-              agentText = `Email sent successfully!`;
-            } else if (response.tool === 'calendar_create') {
-              agentText = `Calendar event created successfully!`;
-            } else if (response.tool === 'tasks_create') {
-              agentText = `Task created successfully!`;
-            } else if (response.tool === 'tasks_update') {
-              agentText = `Task updated successfully!`;
-            } else if (response.tool === 'file_write') {
-              agentText = `File written successfully!`;
-            } else if (response.tool === 'file_delete') {
-              agentText = `File deleted successfully!`;
             }
             console.log(`\n${chalk.bold.cyan('🤖 Agent:')}\n${agentText}\n`);
             saveMessage(sessionId, 'assistant', agentText);
