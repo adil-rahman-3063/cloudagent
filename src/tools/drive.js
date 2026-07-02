@@ -181,14 +181,16 @@ export const driveDownload = {
       }
 
       // Ensure target parent directory exists before downloading
+      const parentDir = path.dirname(resolvedPath);
       try {
-        const parentDir = path.dirname(resolvedPath);
         if (!fs.existsSync(parentDir)) {
           fs.mkdirSync(parentDir, { recursive: true });
         }
       } catch (e) {
         // ignore
       }
+
+      const basename = path.basename(resolvedPath);
 
       const args = [
         'drive',
@@ -197,10 +199,10 @@ export const driveDownload = {
         '--params',
         JSON.stringify({ fileId: targetId, alt: 'media' }),
         '--output',
-        resolvedPath
+        basename
       ];
 
-      const stdout = (await execGws(args)).toString();
+      const stdout = (await execGws(args, { cwd: parentDir })).toString();
       return { 
         success: true, 
         output: `${stdout.trim()}\n\nVerified local download path: ${resolvedPath}`
