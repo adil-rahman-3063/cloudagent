@@ -1,5 +1,5 @@
 import { execGws } from '../config.js';
-import { tryFormatGmail } from '../formatter.js';
+import { tryFormatGmail, tryFormatGmailRead } from '../formatter.js';
 
 export const gmailList = {
   name: 'gmail_list',
@@ -62,7 +62,7 @@ export const gmailRead = {
     }
     try {
       const stdout = (await execGws(args)).toString();
-      return { success: true, output: stdout };
+      return { success: true, output: tryFormatGmailRead(stdout) };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
     }

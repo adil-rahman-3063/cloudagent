@@ -64,6 +64,17 @@ export function tryFormatGmail(stdout) {
     return stdout;
   }
 }
+export function tryFormatGmailRead(stdout) {
+  if (!stdout) return stdout;
+  return stdout
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ');
+}
+
 
 export function tryFormatDrive(stdout) {
   try {
