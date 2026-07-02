@@ -923,9 +923,18 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
         if (state.spinner) {
           state.spinner.text = toolDesc;
         }
-        process.env.GWS_LIVE_LOGS = 'true';
+
+        global.gwsLogCallback = (line) => {
+          if (state.spinner) {
+            // Keep the log prefix and append the truncated log line in dim format
+            const cleanLine = line.replace(/[\r\n]+/g, ' ').trim();
+            const displayLine = cleanLine.length > 50 ? cleanLine.substring(0, 47) + '...' : cleanLine;
+            state.spinner.text = `${toolDesc} [${chalk.dim(displayLine)}]`;
+          }
+        };
+
         const toolResult = await executeTool(response.tool, response.arguments || {}, sessionId, true);
-        delete process.env.GWS_LIVE_LOGS;
+        delete global.gwsLogCallback;
         
         stopSpinner(state);
         const actionText = toolDesc.replace('Running ', '').replace('...', '');
