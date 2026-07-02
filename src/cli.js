@@ -598,6 +598,7 @@ async function main() {
     }
 
     let prompt = '';
+    let isMenuTriggered = false;
 
     if (str === '/') {
       // Clear the shortcuts footer line
@@ -608,6 +609,7 @@ async function main() {
       const selectedPrompt = await handleInteractiveMenu(sessionId);
       if (!selectedPrompt) continue;
       prompt = selectedPrompt;
+      isMenuTriggered = true;
     } else {
       if (str) {
         process.stdin.unshift(Buffer.from(str));
@@ -637,6 +639,7 @@ async function main() {
         const selectedPrompt = await handleInteractiveSubmenu(cmd, sessionId);
         if (!selectedPrompt) continue;
         prompt = selectedPrompt;
+        isMenuTriggered = true;
       }
     }
 
@@ -798,11 +801,11 @@ async function main() {
     }
 
     // Call Agent
-    await runAgentStep(sessionId, prompt, { isSilent: false, spinner: null });
+    await runAgentStep(sessionId, prompt, { isSilent: false, spinner: null, isMenuTriggered });
   }
 }
 
-async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, spinner: null }) {
+async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, spinner: null, isMenuTriggered: false }) {
   // Save message to database
   saveMessage(sessionId, 'user', userPrompt);
 
@@ -951,6 +954,68 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
             output: toolResult.output 
           }));
 
+          const ACTION_TOOLS = [
+            'gmail_send',
+            'gmail_modify_labels',
+            'drive_download',
+            'drive_upload',
+            'calendar_create',
+            'tasks_create',
+            'tasks_update',
+            'file_write',
+            'file_delete',
+            'git_pull',
+            'git_commit',
+            'git_push',
+            'github_repo_create'
+          ];
+
+          const isActionTool = ACTION_TOOLS.includes(response.tool);
+
+          // Check if user's prompt implies a subsequent action (multi-step workflow)
+          const history = getSessionMessages(sessionId);
+          const firstUserMsg = history.find(m => m.role === 'user');
+          const userPromptText = firstUserMsg ? firstUserMsg.content.toLowerCase() : '';
+          
+          const hasActionKeywords = 
+            userPromptText.includes('download') ||
+            userPromptText.includes('send') ||
+            userPromptText.includes('email') ||
+            userPromptText.includes('mail') ||
+            userPromptText.includes('write') ||
+            userPromptText.includes('create') ||
+            userPromptText.includes('delete') ||
+            userPromptText.includes('update') ||
+            userPromptText.includes('complete') ||
+            userPromptText.includes('mark');
+
+          const isMultiStep = !isActionTool && hasActionKeywords;
+
+          if (state.isMenuTriggered || isActionTool || !isMultiStep) {
+            stopSpinner(state);
+            let agentText = toolResult.output;
+            if (response.tool === 'drive_download') {
+              const lines = toolResult.output.split('\n');
+              const pathLine = lines.find(l => l.includes('Verified local download path:'));
+              agentText = pathLine ? `File downloaded successfully!\n${pathLine}` : `File downloaded successfully!`;
+            } else if (response.tool === 'gmail_send') {
+              agentText = `Email sent successfully!`;
+            } else if (response.tool === 'calendar_create') {
+              agentText = `Calendar event created successfully!`;
+            } else if (response.tool === 'tasks_create') {
+              agentText = `Task created successfully!`;
+            } else if (response.tool === 'tasks_update') {
+              agentText = `Task updated successfully!`;
+            } else if (response.tool === 'file_write') {
+              agentText = `File written successfully!`;
+            } else if (response.tool === 'file_delete') {
+              agentText = `File deleted successfully!`;
+            }
+            console.log(`\n${chalk.bold.cyan('🤖 Agent:')}\n${agentText}\n`);
+            saveMessage(sessionId, 'assistant', agentText);
+            return;
+          }
+
           await runAgentStep(sessionId, `Tool execution success for ${response.tool}. [System Instruction: The tool has executed successfully. Please present the result to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`, state);
         } else {
           saveMessage(sessionId, 'assistant', JSON.stringify({ 
@@ -977,6 +1042,58 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
             tool: response.tool, 
             output: toolResult.output 
           }));
+
+          const ACTION_TOOLS = [
+            'gmail_send',
+            'gmail_modify_labels',
+            'drive_download',
+            'drive_upload',
+            'calendar_create',
+            'tasks_create',
+            'tasks_update',
+            'file_write',
+            'file_delete',
+            'git_pull',
+            'git_commit',
+            'git_push',
+            'github_repo_create'
+          ];
+
+          const isActionTool = ACTION_TOOLS.includes(response.tool);
+
+          // Check if user's prompt implies a subsequent action (multi-step workflow)
+          const history = getSessionMessages(sessionId);
+          const firstUserMsg = history.find(m => m.role === 'user');
+          const userPromptText = firstUserMsg ? firstUserMsg.content.toLowerCase() : '';
+          
+          const hasActionKeywords = 
+            userPromptText.includes('download') ||
+            userPromptText.includes('send') ||
+            userPromptText.includes('email') ||
+            userPromptText.includes('mail') ||
+            userPromptText.includes('write') ||
+            userPromptText.includes('create') ||
+            userPromptText.includes('delete') ||
+            userPromptText.includes('update') ||
+            userPromptText.includes('complete') ||
+            userPromptText.includes('mark');
+
+          const isMultiStep = !isActionTool && hasActionKeywords;
+
+          if (state.isMenuTriggered || isActionTool || !isMultiStep) {
+            let agentText = toolResult.output;
+            if (response.tool === 'gmail_send') {
+              agentText = `Email sent successfully!`;
+            } else if (response.tool === 'calendar_create') {
+              agentText = `Calendar event created successfully!`;
+            } else if (response.tool === 'tasks_create') {
+              agentText = `Task created successfully!`;
+            } else if (response.tool === 'tasks_update') {
+              agentText = `Task updated successfully!`;
+            }
+            saveMessage(sessionId, 'assistant', agentText);
+            return;
+          }
 
           await runAgentStep(sessionId, `Tool execution success for ${response.tool}. [System Instruction: The tool has executed successfully. Please present the result to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`, state);
         } else {
