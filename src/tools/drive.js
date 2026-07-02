@@ -164,7 +164,6 @@ export const driveDownload = {
         finalDest = path.join(homeDir, 'Downloads');
       }
 
-      const args = ['drive', 'files', 'download', targetId];
       let resolvedPath = '';
 
       if (finalDest) {
@@ -177,11 +176,29 @@ export const driveDownload = {
         } catch (e) {
           resolvedPath = path.resolve(finalDest);
         }
-        args.push('--output', resolvedPath);
       } else {
         resolvedPath = path.resolve(filename);
-        args.push('--output', resolvedPath);
       }
+
+      // Ensure target parent directory exists before downloading
+      try {
+        const parentDir = path.dirname(resolvedPath);
+        if (!fs.existsSync(parentDir)) {
+          fs.mkdirSync(parentDir, { recursive: true });
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      const args = [
+        'drive',
+        'files',
+        'get',
+        '--params',
+        JSON.stringify({ fileId: targetId, alt: 'media' }),
+        '--output',
+        resolvedPath
+      ];
 
       const stdout = (await execGws(args)).toString();
       return { 
