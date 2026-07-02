@@ -30,7 +30,7 @@ export const tasksList = {
     ];
     
     try {
-      const stdout = execGws(args).toString();
+      const stdout = (await execGws(args)).toString();
       return { success: true, output: tryFormatTasks(stdout) };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
@@ -71,7 +71,7 @@ export const tasksCreate = {
     ];
 
     try {
-      const stdout = execGws(args).toString();
+      const stdout = (await execGws(args)).toString();
       return { success: true, output: stdout };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
@@ -111,7 +111,7 @@ export const tasksUpdate = {
         '--format',
         'json'
       ];
-      const listStdout = execGws(listArgs).toString();
+      const listStdout = (await execGws(listArgs)).toString();
       const listData = JSON.parse(listStdout);
       const items = listData.items || [];
       
@@ -142,7 +142,7 @@ export const tasksUpdate = {
     ];
 
     try {
-      const stdout = execGws(args).toString();
+      const stdout = (await execGws(args)).toString();
       return { success: true, output: stdout };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };

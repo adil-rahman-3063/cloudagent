@@ -923,7 +923,9 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
         if (state.spinner) {
           state.spinner.text = toolDesc;
         }
+        process.env.GWS_LIVE_LOGS = 'true';
         const toolResult = await executeTool(response.tool, response.arguments || {}, sessionId, true);
+        delete process.env.GWS_LIVE_LOGS;
         
         stopSpinner(state);
         const actionText = toolDesc.replace('Running ', '').replace('...', '');

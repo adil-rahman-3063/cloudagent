@@ -108,7 +108,9 @@ export function setProviderKey(providerName, apiKey) {
   writeConfig(config);
 }
 
-import { execFileSync } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
+import readline from 'readline';
+import chalk from 'chalk';
 
 let cachedGwsJsPath = null;
 let searchedGws = false;
@@ -129,16 +131,67 @@ function getGwsJsPath() {
 }
 
 export function execGws(args, options = {}) {
-  const gwsJs = getGwsJsPath();
-  if (gwsJs) {
-    return execFileSync('node', [gwsJs, ...args], { stdio: 'pipe', ...options });
-  }
+  return new Promise((resolve, reject) => {
+    const gwsJs = getGwsJsPath();
+    let cmd = 'gws';
+    let cmdArgs = args;
+    if (gwsJs) {
+      cmd = 'node';
+      cmdArgs = [gwsJs, ...args];
+    } else if (process.platform === 'win32') {
+      cmd = 'cmd.exe';
+      cmdArgs = ['/c', 'gws', ...args];
+    }
 
-  if (process.platform === 'win32') {
-    return execFileSync('cmd.exe', ['/c', 'gws', ...args], { stdio: 'pipe', ...options });
-  } else {
-    return execFileSync('gws', args, { stdio: 'pipe', ...options });
-  }
+    const liveLogs = process.env.GWS_LIVE_LOGS === 'true';
+    const child = spawn(cmd, cmdArgs, { ...options, stdio: 'pipe' });
+    let stdout = [];
+    let stderr = [];
+    let printedLines = 0;
+
+    child.stdout.on('data', (data) => {
+      stdout.push(data);
+      if (liveLogs) {
+        const str = data.toString();
+        process.stdout.write(str);
+        printedLines += (str.match(/\n/g) || []).length;
+      }
+    });
+
+    child.stderr.on('data', (data) => {
+      stderr.push(data);
+      if (liveLogs) {
+        const str = data.toString();
+        process.stderr.write(chalk.dim(str));
+        printedLines += (str.match(/\n/g) || []).length;
+      }
+    });
+
+    child.on('close', (code) => {
+      const outBuffer = Buffer.concat(stdout);
+      const errBuffer = Buffer.concat(stderr);
+
+      if (liveLogs && code === 0 && printedLines > 0) {
+        // Move cursor up and clear the printed lines
+        for (let i = 0; i < printedLines; i++) {
+          readline.moveCursor(process.stdout, 0, -1);
+          readline.clearLine(process.stdout, 0);
+        }
+      }
+
+      if (code === 0) {
+        resolve(outBuffer);
+      } else {
+        const err = new Error(`gws exited with code ${code}`);
+        err.stderr = errBuffer;
+        reject(err);
+      }
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+  });
 }
 
 export let workspaceAllowed = false;

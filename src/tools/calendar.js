@@ -23,7 +23,7 @@ export const calendarList = {
       args.push('--days', String(days));
     }
     try {
-      const stdout = execGws(args).toString();
+      const stdout = (await execGws(args)).toString();
       return { success: true, output: tryFormatCalendar(stdout) };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
@@ -68,7 +68,7 @@ export const calendarCreate = {
       args.push('--meet');
     }
     try {
-      const stdout = execGws(args).toString();
+      const stdout = (await execGws(args)).toString();
       return { success: true, output: stdout };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };

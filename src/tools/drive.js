@@ -43,7 +43,7 @@ export const driveSearch = {
           'json'
         ];
         try {
-          const stdout = execGws(lookupArgs).toString();
+          const stdout = (await execGws(lookupArgs)).toString();
           const data = JSON.parse(stdout);
           const files = data.files || [];
           if (files.length > 0) {
@@ -84,7 +84,7 @@ export const driveSearch = {
       'json'
     ];
     try {
-      const stdout = execGws(args).toString();
+      const stdout = (await execGws(args)).toString();
       return { success: true, output: tryFormatDrive(stdout) };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
@@ -123,7 +123,7 @@ export const driveDownload = {
           'json'
         ];
         try {
-          const stdout = execGws(listArgs).toString();
+          const stdout = (await execGws(listArgs)).toString();
           const data = JSON.parse(stdout);
           const files = data.files || [];
           if (files.length > 0) {
@@ -146,7 +146,7 @@ export const driveDownload = {
           'json'
         ];
         try {
-          const stdout = execGws(listArgs).toString();
+          const stdout = (await execGws(listArgs)).toString();
           const data = JSON.parse(stdout);
           const files = data.files || [];
           if (files.length > 0) {
@@ -183,7 +183,7 @@ export const driveDownload = {
         args.push('--output', resolvedPath);
       }
 
-      const stdout = execGws(args).toString();
+      const stdout = (await execGws(args)).toString();
       return { 
         success: true, 
         output: `${stdout.trim()}\n\nVerified local download path: ${resolvedPath}`
@@ -218,7 +218,7 @@ export const driveUpload = {
       if (parent) {
         args.push('--parent', parent);
       }
-      const stdout = execGws(args).toString();
+      const stdout = (await execGws(args)).toString();
       return { success: true, output: stdout };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };

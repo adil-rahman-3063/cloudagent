@@ -18,7 +18,7 @@ export const gmailList = {
       args.push('--query', query);
     }
     try {
-      const stdout = execGws(args).toString();
+      const stdout = (await execGws(args)).toString();
       return { success: true, output: tryFormatGmail(stdout) };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
@@ -44,7 +44,7 @@ export const gmailRead = {
       // If it's not a 16-character hex ID, search for messages using the query
       const searchArgs = ['gmail', '+triage', '--query', id, '--max', '1', '--format', 'json'];
       try {
-        const stdout = execGws(searchArgs).toString();
+        const stdout = (await execGws(searchArgs)).toString();
         const data = JSON.parse(stdout);
         const messages = data.messages || [];
         if (messages.length > 0) {
@@ -61,7 +61,7 @@ export const gmailRead = {
       args.push('--headers');
     }
     try {
-      const stdout = execGws(args).toString();
+      const stdout = (await execGws(args)).toString();
       return { success: true, output: stdout };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
@@ -85,7 +85,7 @@ export const gmailSend = {
   async execute({ to, subject, body }) {
     const args = ['gmail', '+send', '--to', to, '--subject', subject, '--body', body];
     try {
-      const stdout = execGws(args).toString();
+      const stdout = (await execGws(args)).toString();
       return { success: true, output: stdout };
     } catch (error) {
       return { success: false, error: error.stderr?.toString() || error.message };
@@ -126,7 +126,7 @@ export const gmailModifyLabels = {
       if (id && !/^[a-f0-9]{16}$/i.test(id)) {
         const searchArgs = ['gmail', '+triage', '--query', id, '--max', '1', '--format', 'json'];
         try {
-          const stdout = execGws(searchArgs).toString();
+          const stdout = (await execGws(searchArgs)).toString();
           const data = JSON.parse(stdout);
           const messages = data.messages || [];
           if (messages.length > 0) {
@@ -157,7 +157,7 @@ export const gmailModifyLabels = {
         'json'
       ];
       try {
-        const stdout = execGws(args).toString();
+        const stdout = (await execGws(args)).toString();
         results.push({ id: targetId, success: true, output: JSON.parse(stdout) });
       } catch (error) {
         results.push({ id: targetId, success: false, error: error.stderr?.toString() || error.message });
