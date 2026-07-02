@@ -885,20 +885,53 @@ async function runAgentStep(sessionId, userPrompt, state = { isSilent: false, sp
           clearInterval(state.intervalId);
           state.intervalId = null;
         }
+        let toolDesc = `Running ${response.tool}...`;
+        if (response.tool === 'gmail_list') {
+          toolDesc = 'Running gws (Gmail: Listing emails)...';
+        } else if (response.tool === 'gmail_send') {
+          toolDesc = 'Running gws (Gmail: Sending email)...';
+        } else if (response.tool === 'gmail_modify_labels') {
+          toolDesc = 'Running gws (Gmail: Updating labels)...';
+        } else if (response.tool === 'drive_list') {
+          toolDesc = 'Running gws (Drive: Listing files)...';
+        } else if (response.tool === 'drive_search') {
+          toolDesc = 'Running gws (Drive: Searching files)...';
+        } else if (response.tool === 'drive_download') {
+          toolDesc = 'Running gws (Drive: Downloading file)...';
+        } else if (response.tool === 'drive_upload') {
+          toolDesc = 'Running gws (Drive: Uploading file)...';
+        } else if (response.tool === 'calendar_list') {
+          toolDesc = 'Running gws (Calendar: Fetching agenda)...';
+        } else if (response.tool === 'calendar_create') {
+          toolDesc = 'Running gws (Calendar: Creating event)...';
+        } else if (response.tool === 'tasks_list') {
+          toolDesc = 'Running gws (Tasks: Listing tasks)...';
+        } else if (response.tool === 'tasks_create') {
+          toolDesc = 'Running gws (Tasks: Creating task)...';
+        } else if (response.tool === 'tasks_update') {
+          toolDesc = 'Running gws (Tasks: Updating task)...';
+        } else if (response.tool.startsWith('gmail_')) {
+          toolDesc = 'Running gws (Gmail)...';
+        } else if (response.tool.startsWith('drive_')) {
+          toolDesc = 'Running gws (Drive)...';
+        } else if (response.tool.startsWith('calendar_')) {
+          toolDesc = 'Running gws (Calendar)...';
+        } else if (response.tool.startsWith('tasks_')) {
+          toolDesc = 'Running gws (Tasks)...';
+        }
+
         if (state.spinner) {
-          let toolDesc = `Running ${response.tool}...`;
-          if (response.tool.startsWith('gmail_')) {
-            toolDesc = 'Running gws (Gmail)...';
-          } else if (response.tool.startsWith('drive_')) {
-            toolDesc = 'Running gws (Drive)...';
-          } else if (response.tool.startsWith('calendar_')) {
-            toolDesc = 'Running gws (Calendar)...';
-          } else if (response.tool.startsWith('tasks_')) {
-            toolDesc = 'Running gws (Tasks)...';
-          }
           state.spinner.text = toolDesc;
         }
         const toolResult = await executeTool(response.tool, response.arguments || {}, sessionId, true);
+        
+        stopSpinner(state);
+        const actionText = toolDesc.replace('Running ', '').replace('...', '');
+        if (toolResult.success) {
+          console.log(chalk.green(`  ✓ Finished: ${actionText} successfully`));
+        } else {
+          console.log(chalk.red(`  ✗ Failed: ${actionText}`));
+        }
         
         if (toolResult.success) {
           saveMessage(sessionId, 'assistant', JSON.stringify({ 
