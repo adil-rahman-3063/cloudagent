@@ -306,12 +306,17 @@ async function handleInteractiveMenu(sessionId) {
         { title: '✅ Google Tasks', value: 'tasks' },
         { title: '💻 Local Filesystem', value: 'filesystem' },
         { title: '🔧 Git & GitHub', value: 'git' },
+        { title: '⚙️  Switch Active Provider / Model', value: 'models' },
         { title: '❌ Cancel', value: 'cancel' }
       ]
     });
 
     if (!mainSelect.service || mainSelect.service === 'cancel') {
       return null;
+    }
+
+    if (mainSelect.service === 'models') {
+      return '/models';
     }
 
     const selected = await handleInteractiveSubmenu(mainSelect.service, sessionId);
@@ -631,6 +636,13 @@ async function main() {
     }
 
     if (!prompt) continue;
+
+    if (prompt === '/') {
+      const selectedPrompt = await handleInteractiveMenu(sessionId);
+      if (!selectedPrompt) continue;
+      prompt = selectedPrompt;
+      isMenuTriggered = true;
+    }
 
     if (prompt.startsWith('/')) {
       const parts = prompt.split(' ');
