@@ -9,7 +9,7 @@ import { readConfig, writeConfig, setProviderKey, setWorkspaceAllowed, workspace
 import { initDatabase, createSession, saveMessage, getSessionMessages, getLastSession, getSessions, clearAllSessions, deleteSession, updateSessionName } from './db.js';
 import { askAgent, getActiveProvider } from './agent.js';
 import { getToolsSchema, executeTool, REGISTRY } from './tool-registry.js';
-import { PROVIDERS } from './providers/models.js';
+import { PROVIDERS, fetchAndValidateProviderModels } from './providers/models.js';
 import { tryFormatSuccess } from './formatter.js';
 import path from 'path';
 import fs from 'fs';
@@ -1170,6 +1170,56 @@ async function handleConfigSubcommand() {
         } else {
           model = modelSelection.model;
         }
+      } else if (provChoice.provider === 'gemini' || provChoice.provider === 'openai') {
+        let key = config.providers?.[provChoice.provider]?.api_key;
+        if (!key) {
+          console.log(chalk.yellow(`No API Key configured for ${PROVIDERS[provChoice.provider].name}.`));
+          const keyInput = await prompts({
+            type: 'text',
+            name: 'key',
+            message: `Enter API key for ${PROVIDERS[provChoice.provider].name}:`
+          });
+          if (keyInput.key) {
+            key = keyInput.key;
+            setProviderKey(provChoice.provider, key);
+            console.log(chalk.green('API Key configured successfully.'));
+          } else {
+            console.log(chalk.red('Cannot switch to provider without an API Key.'));
+            return;
+          }
+        }
+
+        const spinner = ora('Fetching and validating available models...').start();
+        try {
+          const models = await fetchAndValidateProviderModels(provChoice.provider, key);
+          spinner.stop();
+          
+          if (models.length === 0) {
+            console.log(chalk.yellow('No generation models found for this provider.'));
+            return;
+          }
+
+          const modelSelection = await prompts({
+            type: 'select',
+            name: 'model',
+            message: `Select ${PROVIDERS[provChoice.provider].name} Model (cheaper to expensive):`,
+            choices: models.map(m => {
+              const pricingText = m.unknown 
+                ? chalk.dim('(Unknown pricing / experimental)')
+                : chalk.green(`($${m.inputCost.toFixed(4)} in / $${m.outputCost.toFixed(4)} out per 1M)`);
+              return {
+                title: `${m.id} ${pricingText}`,
+                value: m.id
+              };
+            })
+          });
+          
+          model = modelSelection.model;
+        } catch (err) {
+          spinner.stop();
+          console.error(chalk.red(`Failed to fetch models: ${err.message}`));
+          return;
+        }
       } else {
         const modelChoice = await prompts({
           type: 'text',
@@ -1206,8 +1256,33 @@ async function handleConfigSubcommand() {
       });
 
       if (keyInput.key) {
-        setProviderKey(provChoice.provider, keyInput.key);
-        console.log(chalk.green('\nAPI Key configured successfully.'));
+        if (provChoice.provider === 'gemini' || provChoice.provider === 'openai') {
+          const spinner = ora('Validating API key by retrieving available models...').start();
+          try {
+            const models = await fetchAndValidateProviderModels(provChoice.provider, keyInput.key);
+            spinner.stop();
+            console.log(chalk.green(`\n✓ API Key verified successfully. Retrieved ${models.length} available models.`));
+            
+            console.log(chalk.bold('\nCheapest Available Models:'));
+            models.slice(0, 5).forEach(m => {
+              const pricingText = m.unknown 
+                ? chalk.dim('experimental/unknown price')
+                : chalk.green(`$${m.inputCost.toFixed(4)} in / $${m.outputCost.toFixed(4)} out per 1M`);
+              console.log(`  - ${m.id} (${pricingText})`);
+            });
+            console.log('');
+            
+            setProviderKey(provChoice.provider, keyInput.key);
+          } catch (err) {
+            spinner.stop();
+            console.error(chalk.red(`\nVerification failed: ${err.message}`));
+            console.log(chalk.red('API Key was NOT saved. Please check the key and try again.'));
+            return;
+          }
+        } else {
+          setProviderKey(provChoice.provider, keyInput.key);
+          console.log(chalk.green('\nAPI Key configured successfully.'));
+        }
       }
     }
   } else if (action.value === 'print') {
