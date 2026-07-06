@@ -149,6 +149,9 @@ export function tryFormatTasks(stdout) {
 }
 
 export function tryFormatSuccess(toolName, stdout) {
+  if (toolName === 'file_read') {
+    return stdout;
+  }
   try {
     const resObj = JSON.parse(stdout);
     if (toolName === 'gmail_send' && resObj.id) {
