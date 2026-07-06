@@ -212,7 +212,8 @@ async function handleInteractiveSubmenu(service, sessionId) {
     subchoices.push(
       { title: '📋 List files/folders (drive_list)', value: 'drive_list' },
       { title: '📥 Download a file (drive_download)', value: 'drive_download' },
-      { title: '📤 Upload a file (drive_upload)', value: 'drive_upload' }
+      { title: '📤 Upload a file (drive_upload)', value: 'drive_upload' },
+      { title: '❌ Delete a file/folder (drive_delete)', value: 'drive_delete' }
     );
   } else if (service === 'calendar') {
     subchoices.push(
@@ -286,6 +287,7 @@ async function handleInteractiveSubmenu(service, sessionId) {
     drive_list: 'List all files and folders in my Google Drive. Group them clearly into "Folders" and "Files", list them alphabetically, and format them using clean conversational bullet points. Do NOT output markdown tables, raw JSON, or box-drawing characters.',
     drive_download: 'Download a file from my Google Drive.',
     drive_upload: 'Upload a file to my Google Drive.',
+    drive_delete: 'Permanently delete a file or folder from Google Drive.',
     calendar_list: 'List my calendar schedule and agenda. Format the output in a clean, conversational manner using bullet points. Convert all dates and times to my local timezone and display in user-friendly format. Do NOT output markdown tables, raw JSON, or box-drawing characters.',
     calendar_create: 'Create a new calendar event. Convert all input dates and times to local timezone as needed.',
     tasks_list: 'List my tasks. Format them using clean conversational bullet points. Do NOT output markdown tables or raw JSON.',

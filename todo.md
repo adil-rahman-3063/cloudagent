@@ -25,6 +25,7 @@ This file tracks the testing status of all CloudAgent capabilities.
   - [x] Search files and directories by query parameters.
   - [x] Download files to local directories.
   - [x] Upload local files to Drive.
+  - [x] Delete files and folders.
 
 - [x] **System Diagnostics & Configurations**
   - [x] doctor check (Node, Internet, API keys, gws installation, git, sqlite status).

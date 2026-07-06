@@ -169,6 +169,9 @@ export function tryFormatSuccess(toolName, stdout) {
     if (toolName === 'drive_upload' && resObj.id) {
       return chalk.green(`✓ File uploaded successfully! (File: "${resObj.name || ''}", ID: ${resObj.id || ''})`);
     }
+    if (toolName === 'drive_delete') {
+      return chalk.green(`✓ File or folder permanently deleted from Google Drive successfully!`);
+    }
     if (toolName === 'gmail_modify_labels') {
       return chalk.green(`✓ Email labels updated successfully!`);
     }

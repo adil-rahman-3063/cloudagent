@@ -2,7 +2,7 @@ import path from 'path';
 import chalk from 'chalk';
 import prompts from 'prompts';
 import { gmailList, gmailRead, gmailSend, gmailModifyLabels } from './tools/gmail.js';
-import { driveSearch, driveDownload, driveUpload } from './tools/drive.js';
+import { driveSearch, driveDownload, driveUpload, driveDelete } from './tools/drive.js';
 import { calendarList, calendarCreate } from './tools/calendar.js';
 import { gitStatus, gitPull, gitCommit, gitPush, githubRepoCreate } from './tools/git.js';
 import { fileList, fileRead, fileWrite, fileDelete, fileCd, fileFindProjects, resolveSmartPath } from './tools/filesystem.js';
@@ -19,6 +19,7 @@ export const REGISTRY = {
   drive_search: driveSearch,
   drive_download: driveDownload,
   drive_upload: driveUpload,
+  drive_delete: driveDelete,
   calendar_list: calendarList,
   calendar_create: calendarCreate,
   git_status: gitStatus,
@@ -71,15 +72,18 @@ export function getToolsSchema(history = []) {
     }
   }
 
+  // Cross-link drive and sheets categories because spreadsheets are drive files
+  if (categories.includes('sheets') && !categories.includes('drive')) {
+    categories.push('drive');
+  }
+  if (categories.includes('drive') && !categories.includes('sheets')) {
+    categories.push('sheets');
+  }
+
   // Filter tools list based on identified categories
   let tools = Object.values(REGISTRY);
   if (categories.length > 0) {
-    tools = tools.filter(tool => {
-      if (categories.includes('sheets') && tool.name === 'drive_search') {
-        return true;
-      }
-      return categories.some(cat => tool.name.startsWith(cat));
-    });
+    tools = tools.filter(tool => categories.some(cat => tool.name.startsWith(cat)));
   }
 
   return tools.map(tool => ({

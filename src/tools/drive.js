@@ -244,3 +244,56 @@ export const driveUpload = {
     }
   }
 };
+
+export const driveDelete = {
+  name: 'drive_delete',
+  description: 'Permanently delete a file or folder from Google Drive by name or ID',
+  schema: {
+    type: 'object',
+    properties: {
+      file: { type: 'string', description: 'The file/folder name or Google Drive file ID to delete' }
+    },
+    required: ['file']
+  },
+  risk: 'high',
+  async execute({ file }) {
+    try {
+      let fileId = file;
+      if (!/^[a-zA-Z0-9-_]{25,50}$/.test(file)) {
+        // Resolve by name
+        const q = `name = '${file}' and trashed = false`;
+        const lookupArgs = [
+          'drive',
+          'files',
+          'list',
+          '--params',
+          JSON.stringify({ q }),
+          '--format',
+          'json'
+        ];
+        const stdout = (await execGws(lookupArgs)).toString();
+        const data = JSON.parse(stdout);
+        const files = data.files || [];
+        if (files.length === 0) {
+          throw new Error(`File or folder not found: "${file}"`);
+        }
+        fileId = files[0].id;
+      }
+      
+      const args = [
+        'drive',
+        'files',
+        'delete',
+        '--params',
+        JSON.stringify({ fileId }),
+        '--format',
+        'json'
+      ];
+      await execGws(args);
+      return { success: true, output: `Successfully deleted file/folder "${file}" from Google Drive.` };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+};
+
