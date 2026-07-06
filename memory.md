@@ -20,7 +20,7 @@ This document outlines key technical decisions, implementations, and setup detai
 
 4. **Multi-Model Fallbacks & Robust APIs**:
    - Standardized provider wrappers reside in `src/providers/` (`gemini.js`, `openai.js`, `anthropic.js`, `openrouter.js`).
-   - All external fetch requests utilize an `AbortController` set to abort after a strict **15-second timeout**.
+   - All external fetch requests utilize an `AbortController` set to abort after a strict **30-second timeout**.
    - Sticky fallback tracking: successful model outcomes are saved back to `config.json` as the new active provider.
    - Chat context sanitization runs prior to request dispatch to ensure strict `user` and `assistant` role alternation (preventing `400 Bad Request` schema validation failures).
    - **Context retention**: Proposed tool call payloads (arguments, thoughts, tool name) are explicitly saved in the message history before tool execution, ensuring follow-up prompts do not cause the model to lose context of drafts (e.g., subject and email body drafts).
