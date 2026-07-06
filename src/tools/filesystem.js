@@ -22,7 +22,7 @@ export const fileList = {
   async execute({ dirPath = '.' }) {
     try {
       checkAllowed();
-      const resolvedPath = path.resolve(dirPath);
+      const resolvedPath = resolveSmartPath(dirPath);
       const files = fs.readdirSync(resolvedPath);
       const dirsList = [];
       const filesList = [];
@@ -62,7 +62,7 @@ export const fileRead = {
   async execute({ filePath }) {
     try {
       checkAllowed();
-      const resolvedPath = path.resolve(filePath);
+      const resolvedPath = resolveSmartPath(filePath);
       const content = fs.readFileSync(resolvedPath, 'utf8');
       return { success: true, output: content };
     } catch (error) {
@@ -86,7 +86,7 @@ export const fileWrite = {
   async execute({ filePath, content }) {
     try {
       checkAllowed();
-      const resolvedPath = path.resolve(filePath);
+      const resolvedPath = resolveSmartPath(filePath);
       fs.writeFileSync(resolvedPath, content, 'utf8');
       return { success: true, output: `Successfully wrote file to ${filePath}` };
     } catch (error) {
@@ -109,7 +109,7 @@ export const fileDelete = {
   async execute({ filePath }) {
     try {
       checkAllowed();
-      const resolvedPath = path.resolve(filePath);
+      const resolvedPath = resolveSmartPath(filePath);
       fs.unlinkSync(resolvedPath);
       return { success: true, output: `Successfully deleted file ${filePath}` };
     } catch (error) {
