@@ -26,7 +26,7 @@ ${JSON.stringify(tools, null, 2)}
 
 Resolve references to folders, files, or previous contexts using the session history.
 
-CRITICAL: Match the tool to the requested service. For example, if the user asks about Google Drive files, you MUST use 'drive_search' or other 'drive_*' tools. Never call 'github_repo_create' or other unrelated git/local filesystem tools for Google Drive operations.
+CRITICAL: Match the tool to the requested service. For example, if the user asks about Google Drive files, you MUST use 'drive_search' or other 'drive_*' tools. Never call 'github_repo_create' or other unrelated git/local filesystem tools for Google Drive operations. Google Sheets/spreadsheets are files on Google Drive; to list or search spreadsheets, you MUST call 'drive_search' with an appropriate query or MIME type parameter.
 
 When the user requests an action (such as sending an email or creating an event) but does not provide all the required arguments (like recipient, subject, body, or time), do NOT try to call the tool with missing or empty parameters. Instead, reply directly to the user asking politely for the missing information (e.g., recipient email, subject, or message body) and offer to help draft the content if needed.
 

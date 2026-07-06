@@ -73,7 +73,12 @@ export function getToolsSchema(history = []) {
   // Filter tools list based on identified categories
   let tools = Object.values(REGISTRY);
   if (categories.length > 0) {
-    tools = tools.filter(tool => categories.some(cat => tool.name.startsWith(cat)));
+    tools = tools.filter(tool => {
+      if (categories.includes('sheets') && tool.name === 'drive_search') {
+        return true;
+      }
+      return categories.some(cat => tool.name.startsWith(cat));
+    });
   }
 
   return tools.map(tool => ({
