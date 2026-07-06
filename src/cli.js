@@ -71,6 +71,7 @@ function displayHelp() {
   // 7. Direct commands
   console.log(chalk.bold.white('⚡ Direct Commands'));
   console.log(`  - ${chalk.cyan('/help')} or ${chalk.cyan('what can i do')}: Print this capabilities screen.`);
+  console.log(`  - ${chalk.cyan('/models')}: Switch active provider and model directly from the chat.`);
   console.log(`  - ${chalk.cyan('/doctor')}: Run environment diagnostic checks.`);
   console.log(`  - ${chalk.cyan('/send')}: Directly send an email without LLM parsing (e.g., \`/send email@example.com "subject" "body"\`).`);
   console.log(`  - ${chalk.cyan('/exit')}: Safely terminate the CLI loop.`);
@@ -700,6 +701,115 @@ async function main() {
         console.log(chalk.green('Current chat session deleted successfully.'));
         sessionId = 'session_' + Date.now();
         createSession(sessionId);
+      }
+      continue;
+    }
+
+    if (prompt === '/models') {
+      const config = readConfig();
+      console.log(chalk.bold('\n⚙️  Switch Active Provider / Model\n'));
+      console.log(`Current Active Model: ${chalk.bold.cyan(config.active_provider)} (${chalk.bold.green(config.active_model)})\n`);
+
+      const provChoice = await prompts({
+        type: 'select',
+        name: 'provider',
+        message: 'Select AI Provider:',
+        choices: Object.entries(PROVIDERS).map(([key, val]) => ({
+          title: val.name,
+          value: key
+        }))
+      });
+
+      if (provChoice.provider) {
+        let model = '';
+        if (provChoice.provider === 'openrouter') {
+          const availableModels = readModels();
+          const modelSelection = await prompts({
+            type: 'select',
+            name: 'model',
+            message: 'Select OpenRouter Model:',
+            choices: [
+              ...availableModels.map(m => ({ title: m, value: m })),
+              { title: 'Custom Model (write in)', value: '__custom__' }
+            ]
+          });
+
+          if (modelSelection.model === '__custom__') {
+            const customPrompt = await prompts({
+              type: 'text',
+              name: 'model',
+              message: 'Enter custom model name:'
+            });
+            model = customPrompt.model;
+          } else {
+            model = modelSelection.model;
+          }
+        } else if (provChoice.provider === 'gemini' || provChoice.provider === 'openai') {
+          let key = config.providers?.[provChoice.provider]?.api_key;
+          if (!key) {
+            console.log(chalk.yellow(`No API Key configured for ${PROVIDERS[provChoice.provider].name}.`));
+            const keyInput = await prompts({
+              type: 'text',
+              name: 'key',
+              message: `Enter API key for ${provChoice.provider}:`
+            });
+            if (keyInput.key) {
+              key = keyInput.key;
+              setProviderKey(provChoice.provider, key);
+              console.log(chalk.green('API Key configured successfully.'));
+            } else {
+              console.log(chalk.red('Cannot switch to provider without an API Key.'));
+              continue;
+            }
+          }
+
+          const spinner = ora('Fetching and validating available models...').start();
+          try {
+            const models = await fetchAndValidateProviderModels(provChoice.provider, key);
+            spinner.stop();
+            
+            if (models.length === 0) {
+              console.log(chalk.yellow('No generation models found for this provider.'));
+              continue;
+            }
+
+            const modelSelection = await prompts({
+              type: 'select',
+              name: 'model',
+              message: `Select ${PROVIDERS[provChoice.provider].name} Model (cheaper to expensive):`,
+              choices: models.map(m => {
+                const pricingText = m.unknown 
+                  ? chalk.dim('(Unknown pricing / experimental)')
+                  : chalk.green(`($${m.inputCost.toFixed(4)} in / $${m.outputCost.toFixed(4)} out per 1M)`);
+                return {
+                  title: `${m.id} ${pricingText}`,
+                  value: m.id
+                };
+              })
+            });
+            
+            model = modelSelection.model;
+          } catch (err) {
+            spinner.stop();
+            console.error(chalk.red(`Failed to fetch models: ${err.message}`));
+            continue;
+          }
+        } else {
+          const modelChoice = await prompts({
+            type: 'text',
+            name: 'model',
+            message: `Enter model name (default: ${PROVIDERS[provChoice.provider].defaultModel}):`,
+            initial: PROVIDERS[provChoice.provider].defaultModel
+          });
+          model = modelChoice.model;
+        }
+
+        if (model) {
+          config.active_provider = provChoice.provider;
+          config.active_model = model;
+          writeConfig(config);
+          console.log(chalk.green(`\nActive provider set to ${provChoice.provider} (${model})\n`));
+        }
       }
       continue;
     }
