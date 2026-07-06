@@ -7,6 +7,7 @@ import { calendarList, calendarCreate } from './tools/calendar.js';
 import { gitStatus, gitPull, gitCommit, gitPush, githubRepoCreate } from './tools/git.js';
 import { fileList, fileRead, fileWrite, fileDelete, fileCd, fileFindProjects, resolveSmartPath } from './tools/filesystem.js';
 import { tasksList, tasksCreate, tasksUpdate } from './tools/tasks.js';
+import { sheetsRead, sheetsAppend, sheetsUpdate } from './tools/sheets.js';
 import { logToolRun, updateToolRun } from './db.js';
 
 // Registry holding all tools
@@ -33,7 +34,10 @@ export const REGISTRY = {
   file_find_projects: fileFindProjects,
   tasks_list: tasksList,
   tasks_create: tasksCreate,
-  tasks_update: tasksUpdate
+  tasks_update: tasksUpdate,
+  sheets_read: sheetsRead,
+  sheets_append: sheetsAppend,
+  sheets_update: sheetsUpdate
 };
 
 // Returns schemas for the AI prompt, filtered dynamically by history context keywords/categories
@@ -52,6 +56,7 @@ export function getToolsSchema(history = []) {
     else if (combinedText.includes('category: tasks')) categories.push('tasks');
     else if (combinedText.includes('category: filesystem')) categories.push('file');
     else if (combinedText.includes('category: git')) categories.push('git', 'github');
+    else if (combinedText.includes('category: sheets')) categories.push('sheets');
 
     // Natural language keyword checks (only if no explicit category tag was matched yet)
     if (categories.length === 0) {
@@ -61,6 +66,7 @@ export function getToolsSchema(history = []) {
       if (/\b(task|todo|tasks|list\s+task|create\s+task)\b/.test(combinedText)) categories.push('tasks');
       if (/\b(file|folder|directory|cd|path|filesystem|read|write|delete)\b/.test(combinedText)) categories.push('file');
       if (/\b(git|github|repo|repository|commit|push|pull|clone|merge)\b/.test(combinedText)) categories.push('git', 'github');
+      if (/\b(sheet|sheets|spreadsheet|spreadsheets|row|rows|cell|cells|column|columns)\b/.test(combinedText)) categories.push('sheets');
     }
   }
 

@@ -49,7 +49,7 @@ This file tracks the testing status of all CloudAgent capabilities.
   - [x] Git commands (e.g. `git_status`, `git_pull`) triggered via natural language prompts.
 
 - [ ] **Future Roadmap (Additional gws Services)**
-  - [ ] **Google Sheets**: Read, write, and append spreadsheet tables.
+  - [x] **Google Sheets**: Read, write, and append spreadsheet tables.
   - [ ] **Google Keep**: Manage and sync Keep notes.
   - [ ] **Google Docs**: Read and write Google Document files.
   - [ ] **Google People**: Retrieve and search contacts.

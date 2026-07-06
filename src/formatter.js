@@ -186,6 +186,15 @@ export function tryFormatSuccess(toolName, stdout) {
       }
       return output;
     }
+    if (toolName === 'sheets_read') {
+      return tryFormatSheetsRead(stdout);
+    }
+    if (toolName === 'sheets_append') {
+      return chalk.green('✓ Row appended to Google Sheet successfully!');
+    }
+    if (toolName === 'sheets_update') {
+      return chalk.green('✓ Google Sheet cell values updated successfully!');
+    }
 
     // Universal JSON Formatter Fallback
     if (resObj && typeof resObj === 'object') {
@@ -218,3 +227,32 @@ export function tryFormatSuccess(toolName, stdout) {
     return stdout;
   }
 }
+
+export function tryFormatSheetsRead(stdout) {
+  try {
+    const data = JSON.parse(stdout);
+    const values = data.values || [];
+    if (values.length === 0) {
+      return chalk.yellow(`\n📦 Sheets Values\n(No cell values found in range)`);
+    }
+    
+    const maxCols = Math.max(...values.map(r => r.length));
+    const headers = [];
+    for (let i = 0; i < maxCols; i++) {
+      headers.push(String.fromCharCode(65 + i)); 
+    }
+    
+    const rows = values.map(r => {
+      const rowCells = [];
+      for (let i = 0; i < maxCols; i++) {
+        rowCells.push(r[i] !== undefined ? String(r[i]) : '');
+      }
+      return rowCells;
+    });
+
+    return formatBoxedTable(`Google Sheets Range: ${data.range || ''}`, headers, rows);
+  } catch (e) {
+    return stdout;
+  }
+}
+

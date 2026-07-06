@@ -39,6 +39,13 @@ function displayHelp() {
   console.log(`  - ${chalk.green('Upload files')}: Save local files to Google Drive. (e.g., "Upload report.csv")`);
   console.log('');
 
+  // 2b. Sheets
+  console.log(chalk.bold.green('📊 Google Sheets'));
+  console.log(`  - ${chalk.green('Read cells')}: Fetch data from a spreadsheet range. (e.g., "Read range Sheet1!A1:B10 of my-sheet")`);
+  console.log(`  - ${chalk.green('Append rows')}: Add new rows to a spreadsheet. (e.g., "Append 'John,35' to sheet data-sheet")`);
+  console.log(`  - ${chalk.green('Update cells')}: Modify cell values. (e.g., "Set range A1 to 'Updated' in sheet-file")`);
+  console.log('');
+
   // 3. Calendar
   console.log(chalk.bold.blue('📅 Google Calendar'));
   console.log(`  - ${chalk.green('List events')}: Retrieve scheduled meetings. (e.g., "Show me my meetings tomorrow")`);
@@ -235,6 +242,12 @@ async function handleInteractiveSubmenu(service, sessionId) {
       { title: '📤 Git push changes (git_push)', value: 'git_push' },
       { title: '➕ Create GitHub repository (github_repo_create)', value: 'github_repo_create' }
     );
+  } else if (service === 'sheets') {
+    subchoices.push(
+      { title: '📖 Read spreadsheet range (sheets_read)', value: 'sheets_read' },
+      { title: '➕ Append row to sheet (sheets_append)', value: 'sheets_append' },
+      { title: '✏️  Update spreadsheet cell values (sheets_update)', value: 'sheets_update' }
+    );
   }
 
   subchoices.push(
@@ -287,7 +300,10 @@ async function handleInteractiveSubmenu(service, sessionId) {
     git_pull: 'Pull latest changes from git repository.',
     git_commit: 'Commit recent changes to git.',
     git_push: 'Push local commits to GitHub repository.',
-    github_repo_create: 'Create a new repository on GitHub.'
+    github_repo_create: 'Create a new repository on GitHub.',
+    sheets_read: 'Read cell values from a specified Google Sheets spreadsheet range.',
+    sheets_append: 'Append a row of values to the end of a Google Sheets spreadsheet.',
+    sheets_update: 'Set cell values in a specified Google Sheets range.'
   };
 
   return promptMappings[subSelect.action] || `Execute ${subSelect.action} tool`;
@@ -302,6 +318,7 @@ async function handleInteractiveMenu(sessionId) {
       choices: [
         { title: '📧 Gmail (Emails)', value: 'gmail' },
         { title: '📁 Google Drive', value: 'drive' },
+        { title: '📊 Google Sheets (Spreadsheets)', value: 'sheets' },
         { title: '📅 Google Calendar', value: 'calendar' },
         { title: '✅ Google Tasks', value: 'tasks' },
         { title: '💻 Local Filesystem', value: 'filesystem' },
@@ -829,6 +846,13 @@ async function main() {
     if (prompt === '/doctor') {
       await runDiagnostics();
       continue;
+    }
+
+    if (prompt === '/sheets') {
+      const selectedPrompt = await handleInteractiveSubmenu('sheets', sessionId);
+      if (!selectedPrompt) continue;
+      prompt = selectedPrompt;
+      isMenuTriggered = true;
     }
 
     if (prompt === '/help' || prompt === 'help' || prompt.toLowerCase() === 'what can i do' || prompt.toLowerCase() === 'what can you do') {
