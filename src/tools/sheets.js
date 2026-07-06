@@ -146,3 +146,39 @@ export const sheetsUpdate = {
     }
   }
 };
+
+export const sheetsCreate = {
+  name: 'sheets_create',
+  description: 'Create a new Google Sheets spreadsheet with a specified title',
+  schema: {
+    type: 'object',
+    properties: {
+      title: { type: 'string', description: 'The title of the new spreadsheet' }
+    },
+    required: ['title']
+  },
+  risk: 'confirm',
+  async execute({ title }) {
+    try {
+      const body = {
+        properties: {
+          title
+        }
+      };
+      const args = [
+        'sheets',
+        'spreadsheets',
+        'create',
+        '--json',
+        JSON.stringify(body),
+        '--format',
+        'json'
+      ];
+      const stdout = (await execGws(args)).toString();
+      return { success: true, output: stdout };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+};
+

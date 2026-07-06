@@ -195,6 +195,11 @@ export function tryFormatSuccess(toolName, stdout) {
     if (toolName === 'sheets_update') {
       return chalk.green('✓ Google Sheet cell values updated successfully!');
     }
+    if (toolName === 'sheets_create') {
+      const name = resObj.properties?.title || 'Untitled Spreadsheet';
+      const id = resObj.spreadsheetId || '';
+      return chalk.green(`✓ Google Sheet "${name}" created successfully! (ID: ${id})`);
+    }
 
     // Universal JSON Formatter Fallback
     if (resObj && typeof resObj === 'object') {

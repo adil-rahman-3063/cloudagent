@@ -7,7 +7,7 @@ import { calendarList, calendarCreate } from './tools/calendar.js';
 import { gitStatus, gitPull, gitCommit, gitPush, githubRepoCreate } from './tools/git.js';
 import { fileList, fileRead, fileWrite, fileDelete, fileCd, fileFindProjects, resolveSmartPath } from './tools/filesystem.js';
 import { tasksList, tasksCreate, tasksUpdate } from './tools/tasks.js';
-import { sheetsRead, sheetsAppend, sheetsUpdate } from './tools/sheets.js';
+import { sheetsRead, sheetsAppend, sheetsUpdate, sheetsCreate } from './tools/sheets.js';
 import { logToolRun, updateToolRun } from './db.js';
 
 // Registry holding all tools
@@ -37,7 +37,8 @@ export const REGISTRY = {
   tasks_update: tasksUpdate,
   sheets_read: sheetsRead,
   sheets_append: sheetsAppend,
-  sheets_update: sheetsUpdate
+  sheets_update: sheetsUpdate,
+  sheets_create: sheetsCreate
 };
 
 // Returns schemas for the AI prompt, filtered dynamically by history context keywords/categories

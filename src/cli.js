@@ -246,7 +246,8 @@ async function handleInteractiveSubmenu(service, sessionId) {
     subchoices.push(
       { title: '📖 Read spreadsheet range (sheets_read)', value: 'sheets_read' },
       { title: '➕ Append row to sheet (sheets_append)', value: 'sheets_append' },
-      { title: '✏️  Update spreadsheet cell values (sheets_update)', value: 'sheets_update' }
+      { title: '✏️  Update spreadsheet cell values (sheets_update)', value: 'sheets_update' },
+      { title: '➕ Create new spreadsheet (sheets_create)', value: 'sheets_create' }
     );
   }
 
@@ -303,7 +304,8 @@ async function handleInteractiveSubmenu(service, sessionId) {
     github_repo_create: 'Create a new repository on GitHub.',
     sheets_read: 'Read cell values from a specified Google Sheets spreadsheet range.',
     sheets_append: 'Append a row of values to the end of a Google Sheets spreadsheet.',
-    sheets_update: 'Set cell values in a specified Google Sheets range.'
+    sheets_update: 'Set cell values in a specified Google Sheets range.',
+    sheets_create: 'Create a new Google Sheets spreadsheet with a specified title.'
   };
 
   return promptMappings[subSelect.action] || `Execute ${subSelect.action} tool`;
