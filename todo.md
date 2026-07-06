@@ -23,22 +23,22 @@ This file tracks the testing status of all CloudAgent capabilities.
 
 - [x] **Google Drive**
   - [x] Search files and directories by query parameters.
-  - [ ] Download files to local directories.
-  - [ ] Upload local files to Drive.
+  - [x] Download files to local directories.
+  - [x] Upload local files to Drive.
 
 - [x] **System Diagnostics & Configurations**
   - [x] doctor check (Node, Internet, API keys, gws installation, git, sqlite status).
   - [x] Onboarding missing dependencies checking.
   - [x] SQLite database schema initialization and chat session logging.
 
-- [ ] **Local Filesystem**
+- [x] **Local Filesystem**
   - [x] Workspace access approval check on startup.
   - [x] Restricted mode handling (when workspace permission is denied).
   - [x] Change directory and navigate folders (`file_cd`).
   - [x] List files in current directory.
-  - [ ] Read local file contents.
-  - [ ] Create/Write to local files.
-  - [ ] Delete local files.
+  - [x] Read local file contents.
+  - [x] Create/Write to local files.
+  - [x] Delete local files.
 
 
 - [x] **Git & GitHub**
