@@ -38,7 +38,7 @@ CRITICAL: When presenting dates and times to the user, always convert them from 
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
