@@ -640,22 +640,26 @@ async function main() {
   await ensureGwsInstalled();
 
   // Workspace Path Permission check
-  const currentDir = process.cwd();
-  console.log(chalk.yellow(`🔒 Workspace Access Request:`));
-  console.log(`CloudAgent is running in: ${chalk.bold(currentDir)}`);
-  
-  const permission = await prompts({
-    type: 'confirm',
-    name: 'allowed',
-    message: 'Allow CloudAgent to read/write files in this directory?',
-    initial: true
-  });
+  if (!jsonStreamMode) {
+    const currentDir = process.cwd();
+    console.log(chalk.yellow(`🔒 Workspace Access Request:`));
+    console.log(`CloudAgent is running in: ${chalk.bold(currentDir)}`);
+    
+    const permission = await prompts({
+      type: 'confirm',
+      name: 'allowed',
+      message: 'Allow CloudAgent to read/write files in this directory?',
+      initial: true
+    });
 
-  setWorkspaceAllowed(!!permission.allowed);
-  if (!permission.allowed) {
-    console.log(chalk.red('Restricted mode active: Local filesystem tools are disabled.\n'));
+    setWorkspaceAllowed(!!permission.allowed);
+    if (!permission.allowed) {
+      console.log(chalk.red('Restricted mode active: Local filesystem tools are disabled.\n'));
+    } else {
+      console.log(chalk.green('Workspace access granted.\n'));
+    }
   } else {
-    console.log(chalk.green('Workspace access granted.\n'));
+    setWorkspaceAllowed(true);
   }
 
   // Quick sanity check for active key
@@ -664,18 +668,23 @@ async function main() {
   const activeKey = config.providers?.[activeProvider]?.api_key;
 
   if (!activeKey) {
-    console.log(chalk.yellow(`No API Key configured for your active provider: ${chalk.bold(activeProvider)}`));
-    const setup = await prompts({
-      type: 'text',
-      name: 'key',
-      message: `Enter API Key for ${activeProvider}:`
-    });
-    if (setup.key) {
-      setProviderKey(activeProvider, setup.key);
-      console.log(chalk.green('API Key saved successfully.'));
-    } else {
-      console.log(chalk.red('Cannot run without an API Key. Run "cloudagent config" to configure.'));
+    if (jsonStreamMode) {
+      console.log(JSON.stringify({ type: 'error', error: `No API Key configured for your active provider: ${activeProvider}. Run "cloudagent config" to configure.` }));
       process.exit(1);
+    } else {
+      console.log(chalk.yellow(`No API Key configured for your active provider: ${chalk.bold(activeProvider)}`));
+      const setup = await prompts({
+        type: 'text',
+        name: 'key',
+        message: `Enter API Key for ${activeProvider}:`
+      });
+      if (setup.key) {
+        setProviderKey(activeProvider, setup.key);
+        console.log(chalk.green('API Key saved successfully.'));
+      } else {
+        console.log(chalk.red('Cannot run without an API Key. Run "cloudagent config" to configure.'));
+        process.exit(1);
+      }
     }
   }
 
