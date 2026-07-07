@@ -183,3 +183,116 @@ export async function runDiagnostics(silent = false) {
 
   return healthy;
 }
+
+export async function getDiagnosticsStatus() {
+  const status = {
+    healthy: true,
+    checks: []
+  };
+
+  // 1. Node.js
+  status.checks.push({
+    name: 'Node.js Runtime',
+    ok: true,
+    critical: true,
+    message: process.version
+  });
+
+  // 2. Internet Connection
+  const isOnline = await checkInternet();
+  status.checks.push({
+    name: 'Internet Connection',
+    ok: isOnline,
+    critical: true,
+    message: isOnline ? 'Connected' : 'Disconnected'
+  });
+  if (!isOnline) status.healthy = false;
+
+  // 3. API Key
+  const config = readConfig();
+  const activeProvider = config.active_provider;
+  const activeKey = config.providers?.[activeProvider]?.api_key;
+  status.checks.push({
+    name: 'LLM Provider Key',
+    ok: !!activeKey,
+    critical: true,
+    message: activeKey ? `Configured (${activeProvider})` : `No API Key for active provider: ${activeProvider}`
+  });
+  if (!activeKey) status.healthy = false;
+
+  // 4. gws CLI & Auth
+  let gwsVer = runCmd('gws --version');
+  status.checks.push({
+    name: 'Google Workspace CLI (gws)',
+    ok: !!gwsVer,
+    critical: true,
+    message: gwsVer ? `Installed (${gwsVer})` : 'Not found in path'
+  });
+  if (!gwsVer) status.healthy = false;
+
+  let gwsAuth = false;
+  let gwsUser = '';
+  if (gwsVer) {
+    const statusVal = runCmd('gws auth status');
+    if (statusVal) {
+      try {
+        const statusObj = JSON.parse(statusVal);
+        gwsAuth = statusObj && (statusObj.token_valid === true || statusObj.status === 'success');
+        gwsUser = statusObj.user || statusObj.account || '';
+      } catch (e) {
+        gwsAuth = statusVal.toLowerCase().includes('authenticated') || statusVal.toLowerCase().includes('token_valid": true');
+      }
+    }
+  }
+  status.checks.push({
+    name: 'Google Workspace Auth',
+    ok: gwsAuth,
+    critical: true,
+    message: gwsAuth ? `Authenticated as ${gwsUser}` : 'Not authenticated (run "gws auth login")'
+  });
+  if (!gwsAuth) status.healthy = false;
+
+  // 5. Git
+  const gitVer = runCmd('git --version');
+  status.checks.push({
+    name: 'Git Version Control',
+    ok: !!gitVer,
+    critical: true,
+    message: gitVer ? `Installed (${gitVer})` : 'Not found in path'
+  });
+  if (!gitVer) status.healthy = false;
+
+  // 6. GitHub CLI (gh)
+  const ghVer = runCmd('gh --version');
+  let ghAuth = false;
+  if (ghVer) {
+    const authVal = runCmd('gh auth status');
+    ghAuth = authVal && authVal.toLowerCase().includes('logged in');
+  }
+  status.checks.push({
+    name: 'GitHub CLI (gh)',
+    ok: !!ghVer,
+    critical: false,
+    message: ghVer ? `Installed (${ghAuth ? 'Authenticated' : 'Unauthenticated'})` : 'Not found (optional)'
+  });
+
+  // 7. Database Check
+  let dbOk = false;
+  let dbMsg = '';
+  try {
+    initDatabase();
+    dbOk = true;
+    dbMsg = 'Initialized';
+  } catch (err) {
+    dbMsg = err.message;
+  }
+  status.checks.push({
+    name: 'SQLite Database',
+    ok: dbOk,
+    critical: true,
+    message: dbOk ? dbMsg : `Failed to load: ${dbMsg}`
+  });
+  if (!dbOk) status.healthy = false;
+
+  return status;
+}
