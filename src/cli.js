@@ -633,7 +633,8 @@ async function main() {
       // ignore
     }
 
-    console.log(JSON.stringify({ type: 'session', sessionId, workspace: process.cwd(), gwsUserEmail }));
+    const currentSessions = getSessions();
+    console.log(JSON.stringify({ type: 'session', sessionId, workspace: process.cwd(), gwsUserEmail, sessions: currentSessions }));
 
     const rl = readline.createInterface({
       input: process.stdin,
@@ -659,6 +660,43 @@ async function main() {
           } else {
             await runAgentStepJSON(sessionId, text);
           }
+        } else if (input.type === 'switch_session') {
+          sessionId = input.sessionId;
+          const history = getSessionMessages(sessionId);
+          const formattedHistory = history.map(h => {
+            let contentText = h.content;
+            try {
+              const parsed = JSON.parse(h.content);
+              if (parsed.text) {
+                contentText = parsed.text;
+              } else if (parsed.tool) {
+                // Return formatted text for tool calls or tryFormatSuccess for lists/etc
+                if (parsed.thought) {
+                  contentText = `*Thinking:* ${parsed.thought}\n\n*Running tool:* \`${parsed.tool}\``;
+                } else {
+                  contentText = `*Running tool:* \`${parsed.tool}\``;
+                }
+              } else if (parsed.status === 'success') {
+                contentText = tryFormatSuccess(parsed.tool, parsed.output);
+              }
+            } catch (e) {}
+            
+            // Skip pure instructions or raw JSON that are not user/agent text
+            if (contentText.startsWith('{') && contentText.includes('"tool"')) return null;
+            if (contentText.includes('[System Instruction:')) return null;
+            
+            return {
+              sender: h.role === 'user' ? 'user' : (h.role === 'assistant' ? 'agent' : 'system'),
+              text: contentText
+            };
+          }).filter(Boolean);
+
+          console.log(JSON.stringify({ type: 'history', sessionId, messages: formattedHistory }));
+        } else if (input.type === 'new_session') {
+          sessionId = 'session_' + Date.now();
+          createSession(sessionId);
+          const freshSessions = getSessions();
+          console.log(JSON.stringify({ type: 'session', sessionId, workspace: process.cwd(), gwsUserEmail, sessions: freshSessions }));
         } else if (input.type === 'confirm') {
           if (global.pendingConfirmationResolve) {
             global.pendingConfirmationResolve(input.approved);
