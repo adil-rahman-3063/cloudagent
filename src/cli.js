@@ -697,6 +697,22 @@ async function main() {
           createSession(sessionId);
           const freshSessions = getSessions();
           console.log(JSON.stringify({ type: 'session', sessionId, workspace: process.cwd(), gwsUserEmail, sessions: freshSessions }));
+        } else if (input.type === 'delete_session') {
+          deleteSession(input.sessionId);
+          const freshSessions = getSessions();
+          let activeId = sessionId;
+          if (sessionId === input.sessionId) {
+            activeId = freshSessions.length > 0 ? freshSessions[0].id : 'session_' + Date.now();
+            if (freshSessions.length === 0) {
+              createSession(activeId);
+              freshSessions.push({ id: activeId, name: 'New Session', updated_at: new Date().toISOString() });
+            }
+          }
+          console.log(JSON.stringify({ type: 'session', sessionId: activeId, workspace: process.cwd(), gwsUserEmail, sessions: freshSessions }));
+        } else if (input.type === 'rename_session') {
+          updateSessionName(input.sessionId, input.name);
+          const freshSessions = getSessions();
+          console.log(JSON.stringify({ type: 'session', sessionId, workspace: process.cwd(), gwsUserEmail, sessions: freshSessions }));
         } else if (input.type === 'confirm') {
           if (global.pendingConfirmationResolve) {
             global.pendingConfirmationResolve(input.approved);
