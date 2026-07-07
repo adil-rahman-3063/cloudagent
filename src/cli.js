@@ -496,16 +496,16 @@ function drawDashboard() {
   console.log(chalk.cyan(borderBottom));
 }
 
-async function runAgentStepJSON(sessionId, userPrompt) {
+export async function runAgentStepJSON(sessionId, userPrompt, outputHandler = (data) => console.log(JSON.stringify(data))) {
   saveMessage(sessionId, 'user', userPrompt);
-  console.log(JSON.stringify({ type: 'status', status: 'thinking' }));
+  outputHandler({ type: 'status', status: 'thinking' });
   
   try {
     const history = getSessionMessages(sessionId);
     const tools = getToolsSchema(history);
 
     const response = await askAgent(history, tools, (modelName) => {
-      console.log(JSON.stringify({ type: 'status', status: 'thinking', model: modelName }));
+      outputHandler({ type: 'status', status: 'thinking', model: modelName });
     });
 
     if (response.tool) {
@@ -515,7 +515,7 @@ async function runAgentStepJSON(sessionId, userPrompt) {
         arguments: response.arguments
       }));
 
-      console.log(JSON.stringify({ type: 'status', status: 'running_tool', tool: response.tool, thought: response.thought }));
+      outputHandler({ type: 'status', status: 'running_tool', tool: response.tool, thought: response.thought });
 
       const toolResult = await executeTool(response.tool, response.arguments || {}, sessionId, true);
       
@@ -567,12 +567,12 @@ async function runAgentStepJSON(sessionId, userPrompt) {
             const pathLine = lines.find(l => l.includes('Verified local download path:'));
             agentText = pathLine ? `File downloaded successfully!\n${pathLine}` : `File downloaded successfully!`;
           }
-          console.log(JSON.stringify({ type: 'message', sender: 'agent', text: agentText }));
+          outputHandler({ type: 'message', sender: 'agent', text: agentText });
           saveMessage(sessionId, 'assistant', agentText);
           return;
         }
 
-        await runAgentStepJSON(sessionId, `Tool execution success for ${response.tool}. [System Instruction: The tool has executed successfully. Please present the result to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`);
+        await runAgentStepJSON(sessionId, `Tool execution success for ${response.tool}. [System Instruction: The tool has executed successfully. Please present the result to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`, outputHandler);
       } else {
         saveMessage(sessionId, 'assistant', JSON.stringify({ 
           status: 'failed', 
@@ -581,23 +581,23 @@ async function runAgentStepJSON(sessionId, userPrompt) {
         }));
         
         if (toolResult.error === 'Execution rejected by user') {
-          console.log(JSON.stringify({ type: 'message', sender: 'agent', text: 'Tool execution rejected by user.' }));
+          outputHandler({ type: 'message', sender: 'agent', text: 'Tool execution rejected by user.' });
           return;
         }
         
-        await runAgentStepJSON(sessionId, `Tool execution failed for ${response.tool}: ${toolResult.error} [System Instruction: The tool execution failed. Please report the error to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`);
+        await runAgentStepJSON(sessionId, `Tool execution failed for ${response.tool}: ${toolResult.error} [System Instruction: The tool execution failed. Please report the error to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`, outputHandler);
       }
     } else if (response.text) {
-      console.log(JSON.stringify({ type: 'message', sender: 'agent', text: response.text }));
+      outputHandler({ type: 'message', sender: 'agent', text: response.text });
       saveMessage(sessionId, 'assistant', response.text);
     } else if (response.thought) {
       saveMessage(sessionId, 'assistant', JSON.stringify({ thought: response.thought }));
-      await runAgentStepJSON(sessionId, "You only provided a 'thought'. Please output a valid JSON containing either a 'tool' to execute or a 'text' response for the user.");
+      await runAgentStepJSON(sessionId, "You only provided a 'thought'. Please output a valid JSON containing either a 'tool' to execute or a 'text' response for the user.", outputHandler);
     } else {
-      console.log(JSON.stringify({ type: 'error', error: 'Received invalid or empty response format from AI.' }));
+      outputHandler({ type: 'error', error: 'Received invalid or empty response format from AI.' });
     }
   } catch (error) {
-    console.log(JSON.stringify({ type: 'error', error: error.message }));
+    outputHandler({ type: 'error', error: error.message });
   }
 }
 
@@ -723,6 +723,12 @@ async function main() {
       }
     }
     process.exit(0);
+  }
+
+  if (args[0] === 'server') {
+    const { startServer } = await import('./server.js');
+    startServer();
+    return;
   }
 
   if (args[0] === 'doctor') {
