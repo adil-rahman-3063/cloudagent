@@ -56,10 +56,15 @@ async function resolveRangeName(spreadsheetId, range) {
     // Look for exact case-insensitive match
     let match = sheetTitles.find(t => t.toLowerCase() === cleanTab);
     
-    // If no match, look for a fuzzy match (levenshtein or simple inclusion/misspelling heuristic)
+    // If no match, look for a fuzzy match (prefix + length similarity)
     if (!match) {
       match = sheetTitles.find(t => {
         const tLower = t.toLowerCase();
+        if (tLower.substring(0, 4) === cleanTab.substring(0, 4)) {
+          if (Math.abs(tLower.length - cleanTab.length) <= 3) {
+            return true;
+          }
+        }
         return tLower.includes(cleanTab) || cleanTab.includes(tLower);
       });
     }
