@@ -217,6 +217,7 @@ class _MainLayoutState extends State<MainLayout> {
           _sessionId = data['sessionId'] ?? '';
           debugPrint('Session ID: $_sessionId');
           _gwsEmail = data['gwsUserEmail'] ?? '';
+          _currentModel = data['activeModel'] ?? '';
           _status = 'Idle';
           final sessionsData = data['sessions'];
           if (sessionsData is List) {
