@@ -766,6 +766,14 @@ class _MainLayoutState extends State<MainLayout> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  IconButton(
+                                    icon: Icon(Icons.edit_rounded, size: 13, color: isDark ? Colors.grey[500] : Colors.grey[600]),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: () => _showRenameDialog(s['id'], name),
+                                    tooltip: 'Rename Chat',
+                                  ),
+                                  const SizedBox(width: 4),
                                   PopupMenuButton<String>(
                                     icon: Icon(Icons.more_vert_rounded, size: 14, color: isDark ? Colors.grey[500] : Colors.grey[600]),
                                     padding: EdgeInsets.zero,
