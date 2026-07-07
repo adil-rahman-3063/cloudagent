@@ -1,0 +1,188 @@
+import { WebSocketServer } from 'ws';
+import { runAgentStepJSON, getHelpText } from './cli.js';
+import { 
+  initDatabase, 
+  createSession, 
+  saveMessage, 
+  getSessionMessages, 
+  getLastSession, 
+  getSessions, 
+  deleteSession, 
+  updateSessionName 
+} from './db.js';
+import { readConfig, writeConfig } from './config.js';
+import { tryFormatSuccess } from './formatter.js';
+import { getDiagnosticsStatus } from './doctor.js';
+import { getDashboardData } from './dashboard.js';
+import { execSync } from 'child_process';
+
+const PORT = process.env.PORT || 3020;
+
+export function startServer() {
+  initDatabase();
+  
+  const wss = new WebSocketServer({ port: PORT });
+  console.log(`🚀 CloudAgent Backend Server running on ws://localhost:${PORT}`);
+
+  wss.on('connection', (ws) => {
+    console.log('🔌 Client connected');
+
+    // Get current GWS user details
+    let gwsUserEmail = '';
+    try {
+      const statusOutput = execSync('gws auth status', { stdio: 'pipe' }).toString();
+      const statusObj = JSON.parse(statusOutput);
+      if (statusObj && (statusObj.token_valid === true || statusObj.status === 'success')) {
+        gwsUserEmail = statusObj.user || statusObj.account || '';
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // Get last session or start fresh
+    const lastSession = getLastSession();
+    let sessionId = lastSession ? lastSession.id : 'session_' + Date.now();
+    const currentSessions = getSessions();
+    if (currentSessions.length === 0) {
+      createSession(sessionId);
+      currentSessions.push({ id: sessionId, name: 'New Chat', updated_at: new Date().toISOString() });
+    }
+
+    // Get active provider & model from config
+    const config = readConfig();
+    const activeModel = config.active_model || 'google/gemini-2.5-flash';
+
+    // Send initial session packet
+    ws.send(JSON.stringify({
+      type: 'session',
+      sessionId,
+      workspace: process.cwd(),
+      gwsUserEmail,
+      sessions: currentSessions,
+      activeModel,
+      widgetsEnabled: config.widgets_enabled !== false,
+      theme: config.theme || 'system'
+    }));
+
+    ws.on('message', async (message) => {
+      try {
+        const input = JSON.parse(message);
+        
+        if (input.type === 'message') {
+          const text = (input.text || '').trim();
+          if (!text) return;
+
+          if (text === '/help' || text === 'help' || text.toLowerCase() === 'what can i do' || text.toLowerCase() === 'what can you do') {
+            const helpText = getHelpText();
+            ws.send(JSON.stringify({ type: 'message', sender: 'agent', text: helpText }));
+            saveMessage(sessionId, 'assistant', helpText);
+          } else if (text.startsWith('/models')) {
+            const config = readConfig();
+            const modelsMsg = `⚙️ **Switch Active Provider / Model**\nCurrent Active Model: **${config.active_provider}** (${config.active_model})\n\nTo switch provider or model, please configure it by running \`cloudagent config\` in your terminal or modify \`config.json\` inside your home directory under \`.cloudagent/\`.`;
+            ws.send(JSON.stringify({ type: 'message', sender: 'agent', text: modelsMsg }));
+            saveMessage(sessionId, 'assistant', modelsMsg);
+          } else {
+            // Run agent step with websocket output handler
+            await runAgentStepJSON(sessionId, text, (data) => {
+              ws.send(JSON.stringify(data));
+            });
+          }
+        } else if (input.type === 'get_diagnostics') {
+          const diagnostics = await getDiagnosticsStatus();
+          ws.send(JSON.stringify({ type: 'diagnostics', ...diagnostics }));
+        } else if (input.type === 'get_dashboard') {
+          const dashboardData = await getDashboardData();
+          ws.send(JSON.stringify({ type: 'dashboard', data: dashboardData }));
+        } else if (input.type === 'get_config') {
+          const config = readConfig();
+          ws.send(JSON.stringify({ type: 'config', config }));
+        } else if (input.type === 'update_config') {
+          const config = readConfig();
+          if (input.activeProvider) config.active_provider = input.activeProvider;
+          if (input.activeModel) config.active_model = input.activeModel;
+          if (input.widgetsEnabled !== undefined) config.widgets_enabled = input.widgetsEnabled;
+          if (input.theme) config.theme = input.theme;
+          if (input.providers) {
+            for (const [prov, provData] of Object.entries(input.providers)) {
+              if (!config.providers[prov]) config.providers[prov] = {};
+              if (provData.api_key !== undefined) config.providers[prov].api_key = provData.api_key;
+            }
+          }
+          writeConfig(config);
+          
+          ws.send(JSON.stringify({
+            type: 'session',
+            sessionId,
+            workspace: process.cwd(),
+            gwsUserEmail,
+            sessions: getSessions(),
+            activeModel: config.active_model,
+            widgetsEnabled: config.widgets_enabled !== false,
+            theme: config.theme || 'system'
+          }));
+        } else if (input.type === 'switch_session') {
+          sessionId = input.sessionId;
+          const history = getSessionMessages(sessionId);
+          const formattedHistory = history.map(h => {
+            let contentText = h.content;
+            try {
+              const parsed = JSON.parse(h.content);
+              if (parsed.text) {
+                contentText = parsed.text;
+              } else if (parsed.tool) {
+                if (parsed.thought) {
+                  contentText = `*Thinking:* ${parsed.thought}\n\n*Running tool:* \`${parsed.tool}\``;
+                } else {
+                  contentText = `*Running tool:* \`${parsed.tool}\``;
+                }
+              } else if (parsed.status === 'success') {
+                contentText = tryFormatSuccess(parsed.tool, parsed.output);
+              }
+            } catch (e) {}
+
+            if (contentText.startsWith('{') && contentText.includes('"tool"')) return null;
+            if (contentText.includes('[System Instruction:')) return null;
+
+            return {
+              sender: h.role === 'user' ? 'user' : (h.role === 'assistant' ? 'agent' : 'system'),
+              text: contentText
+            };
+          }).filter(Boolean);
+
+          ws.send(JSON.stringify({ type: 'history', sessionId, messages: formattedHistory }));
+        } else if (input.type === 'new_session') {
+          sessionId = 'session_' + Date.now();
+          createSession(sessionId);
+          const freshSessions = getSessions();
+          ws.send(JSON.stringify({ type: 'session', sessionId, workspace: process.cwd(), gwsUserEmail, sessions: freshSessions }));
+        } else if (input.type === 'delete_session') {
+          deleteSession(input.sessionId);
+          const freshSessions = getSessions();
+          if (sessionId === input.sessionId) {
+            sessionId = freshSessions.length > 0 ? freshSessions[0].id : 'session_' + Date.now();
+            if (freshSessions.length === 0) {
+              createSession(sessionId);
+              freshSessions.push({ id: sessionId, name: 'New Chat', updated_at: new Date().toISOString() });
+            }
+          }
+          ws.send(JSON.stringify({ type: 'session', sessionId, workspace: process.cwd(), gwsUserEmail, sessions: freshSessions }));
+        } else if (input.type === 'rename_session') {
+          updateSessionName(input.sessionId, input.name);
+          const freshSessions = getSessions();
+          ws.send(JSON.stringify({ type: 'session', sessionId, workspace: process.cwd(), gwsUserEmail, sessions: freshSessions }));
+        }
+      } catch (err) {
+        ws.send(JSON.stringify({ type: 'error', error: 'Server Error: ' + err.message }));
+      }
+    });
+
+    ws.on('close', () => {
+      console.log('🔌 Client disconnected');
+    });
+  });
+}
+
+// Start immediately if executed directly
+if (process.argv[1] && process.argv[1].endsWith('server.js')) {
+  startServer();
+}
