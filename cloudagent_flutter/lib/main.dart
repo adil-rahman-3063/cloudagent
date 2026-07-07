@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 void main() {
   runApp(const CloudAgentApp());
@@ -54,6 +55,7 @@ class _MainLayoutState extends State<MainLayout> {
   String? _workspacePath;
   late final String _cliSourcePath;
   Process? _cliProcess;
+  WebSocketChannel? _webSocketChannel;
   final List<Map<String, dynamic>> _messages = [];
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -121,13 +123,31 @@ class _MainLayoutState extends State<MainLayout> {
   }
 
   void _stopProcess() {
+    _webSocketChannel?.sink.close();
+    _webSocketChannel = null;
     if (kIsWeb) return;
     _cliProcess?.kill();
     _cliProcess = null;
   }
 
+  Future<void> _connectWebSocket() async {
+    final channel = WebSocketChannel.connect(Uri.parse('ws://127.0.0.1:3020'));
+    await channel.ready;
+    _webSocketChannel = channel;
+    _webSocketChannel!.stream.listen(
+      (message) => _handleCliOutput(message as String),
+      onError: (err) {
+        debugPrint('WebSocket Error: $err');
+        _handleCliError(err);
+      },
+      onDone: () {
+        debugPrint('WebSocket Done');
+        _handleCliDone();
+      }
+    );
+  }
+
   Future<void> _startProcess() async {
-    if (kIsWeb) return;
     final workspace = _workspacePath;
     if (workspace == null) return;
 
@@ -136,35 +156,48 @@ class _MainLayoutState extends State<MainLayout> {
         _status = 'Connecting';
       });
 
-      // Spawn Node.js CLI process in background
-      // Note: Assume Node.js is globally available. On Windows, node works, but sometimes we need absolute paths.
-      // We will look for src/cli.js relative to the selected workspace.
-      final cliJs = '$_cliSourcePath/src/cli.js';
+      try {
+        await _connectWebSocket();
+        return;
+      } catch (e) {
+        debugPrint('No common backend running, launching local process: $e');
+      }
+
+      if (kIsWeb) {
+        setState(() {
+          _status = 'Error';
+          _messages.add({
+            'sender': 'system',
+            'text': 'No running backend service found. Cannot spawn local background server on web platform.'
+          });
+        });
+        return;
+      }
+
+      final serverJs = '$_cliSourcePath/src/server.js';
       
       _cliProcess = await Process.start(
         'node',
-        [cliJs, '--json-stream'],
+        [serverJs],
         workingDirectory: workspace,
       );
-
-      _cliProcess!.stdout
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .listen(_handleCliOutput, onError: _handleCliError, onDone: _handleCliDone);
 
       _cliProcess!.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
-            debugPrint('CLI Stderr: $line');
+            debugPrint('Server Stderr: $line');
           });
+
+      await Future.delayed(const Duration(milliseconds: 1500));
+      await _connectWebSocket();
 
     } catch (e) {
       setState(() {
         _status = 'Error';
         _messages.add({
           'sender': 'system',
-          'text': 'Failed to launch CloudAgent backend process. Make sure Node.js is installed in your system PATH and you selected the correct cloudagent workspace.\nError: $e'
+          'text': 'Failed to connect to backend server. Make sure Node.js is installed in your system PATH and you selected the correct cloudagent workspace.\nError: $e'
         });
       });
     }
@@ -274,7 +307,7 @@ class _MainLayoutState extends State<MainLayout> {
 
   void _sendMessage() {
     final text = _messageController.text.trim();
-    if (text.isEmpty || _cliProcess == null) return;
+    if (text.isEmpty || _webSocketChannel == null) return;
 
     setState(() {
       _messages.add({
@@ -286,7 +319,7 @@ class _MainLayoutState extends State<MainLayout> {
       _scrollToBottom();
     });
 
-    _cliProcess!.stdin.writeln(jsonEncode({
+    _webSocketChannel!.sink.add(jsonEncode({
       'type': 'message',
       'text': text
     }));
@@ -351,24 +384,75 @@ class _MainLayoutState extends State<MainLayout> {
   }
 
   void _switchSession(String targetSessionId) {
-    if (_cliProcess == null) return;
-    _cliProcess!.stdin.writeln(jsonEncode({
+    if (_webSocketChannel == null) return;
+    _webSocketChannel!.sink.add(jsonEncode({
       'type': 'switch_session',
       'sessionId': targetSessionId,
     }));
   }
 
   void _startNewSession() {
-    if (_cliProcess == null) return;
-    _cliProcess!.stdin.writeln(jsonEncode({
+    if (_webSocketChannel == null) return;
+    _webSocketChannel!.sink.add(jsonEncode({
       'type': 'new_session',
     }));
   }
 
-  void _sendConfirmation(bool approved) {
-    if (_cliProcess == null || _pendingConfirmation == null) return;
+  void _deleteSession(String targetSessionId) {
+    if (_webSocketChannel == null) return;
+    _webSocketChannel!.sink.add(jsonEncode({
+      'type': 'delete_session',
+      'sessionId': targetSessionId,
+    }));
+  }
 
-    _cliProcess!.stdin.writeln(jsonEncode({
+  void _renameSession(String targetSessionId, String newName) {
+    if (_webSocketChannel == null) return;
+    _webSocketChannel!.sink.add(jsonEncode({
+      'type': 'rename_session',
+      'sessionId': targetSessionId,
+      'name': newName,
+    }));
+  }
+
+  void _showRenameDialog(String sessionId, String currentName) {
+    final controller = TextEditingController(text: currentName);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Conversation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'Enter new name',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                _renameSession(sessionId, newName);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _sendConfirmation(bool approved) {
+    if (_webSocketChannel == null || _pendingConfirmation == null) return;
+
+    _webSocketChannel!.sink.add(jsonEncode({
       'type': 'confirm',
       'approved': approved
     }));
@@ -386,6 +470,7 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   void dispose() {
     _stopProcess();
+    _webSocketChannel?.sink.close();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -535,32 +620,29 @@ class _MainLayoutState extends State<MainLayout> {
                         ),
                       ),
 
-                      const SizedBox(height: 24),
-                      
-                      const Text(
-                        'PAST CONVERSATIONS',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.8,
-                          color: Colors.grey,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'PAST CONVERSATIONS',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add_rounded, size: 16),
+                            onPressed: _startNewSession,
+                            tooltip: 'New Session',
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                          ),
+                        ],
                       ),
                       
                       const SizedBox(height: 8),
-
-                      OutlinedButton.icon(
-                        onPressed: _startNewSession,
-                        icon: const Icon(Icons.add_rounded, size: 16),
-                        label: const Text('New Session', style: TextStyle(fontSize: 12)),
-                        style: OutlinedButton.styleFrom(
-                          alignment: Alignment.centerLeft,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
 
                       if (_sessions.isEmpty)
                         Text(
@@ -603,6 +685,40 @@ class _MainLayoutState extends State<MainLayout> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
+                                  ),
+                                  PopupMenuButton<String>(
+                                    icon: Icon(Icons.more_vert_rounded, size: 14, color: isDark ? Colors.grey[500] : Colors.grey[600]),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    itemBuilder: (context) => [
+                                      const PopupMenuItem(
+                                        value: 'rename',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.edit_rounded, size: 14),
+                                            SizedBox(width: 8),
+                                            Text('Rename', style: TextStyle(fontSize: 12)),
+                                          ],
+                                        ),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'delete',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.delete_rounded, size: 14, color: Colors.red),
+                                            SizedBox(width: 8),
+                                            Text('Delete', style: TextStyle(fontSize: 12, color: Colors.red)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                    onSelected: (val) {
+                                      if (val == 'delete') {
+                                        _deleteSession(s['id']);
+                                      } else if (val == 'rename') {
+                                        _showRenameDialog(s['id'], name);
+                                      }
+                                    },
                                   ),
                                 ],
                               ),
