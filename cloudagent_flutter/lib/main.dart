@@ -69,6 +69,7 @@ class _MainLayoutState extends State<MainLayout> {
   String _sessionId = '';
   List<String> _suggestedCommands = [];
   List<Map<String, dynamic>> _sessions = [];
+  Map<String, dynamic>? _diagnostics;
   
   // Pending confirmation state
   Map<String, dynamic>? _pendingConfirmation;
@@ -221,6 +222,10 @@ class _MainLayoutState extends State<MainLayout> {
           if (sessionsData is List) {
             _sessions = List<Map<String, dynamic>>.from(sessionsData);
           }
+          // Request diagnostics report immediately upon connection
+          _requestDiagnostics();
+        } else if (type == 'diagnostics') {
+          _diagnostics = data;
         } else if (type == 'history') {
           _sessionId = data['sessionId'] ?? '';
           _messages.clear();
@@ -381,6 +386,13 @@ class _MainLayoutState extends State<MainLayout> {
         _suggestedCommands = [];
       }
     });
+  }
+
+  void _requestDiagnostics() {
+    if (_webSocketChannel == null) return;
+    _webSocketChannel!.sink.add(jsonEncode({
+      'type': 'get_diagnostics'
+    }));
   }
 
   void _switchSession(String targetSessionId) {
@@ -845,6 +857,9 @@ class _MainLayoutState extends State<MainLayout> {
                     ),
                   ),
 
+                // Diagnostics Onboarding Banner
+                _buildDiagnosticsBanner(),
+
                 // Messages List
                 Expanded(
                   child: _messages.isEmpty
@@ -1193,6 +1208,131 @@ class _MainLayoutState extends State<MainLayout> {
           );
         }).toList(),
       ),
+    );
+  }
+
+  Widget _buildDiagnosticsBanner() {
+    if (_diagnostics == null) return const SizedBox.shrink();
+    final healthy = _diagnostics!['healthy'] ?? true;
+    if (healthy) return const SizedBox.shrink();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF3E2D1F) : const Color(0xFFFFF3CD),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? Colors.amber[900]! : Colors.amber[300]!,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.warning_amber_rounded,
+            color: isDark ? Colors.amber[300] : Colors.amber[800],
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Some dependencies are missing or require attention.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.amber[100] : Colors.amber[900],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Your agent may not work correctly until these are resolved.',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: isDark ? Colors.amber[200] : Colors.amber[800],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _showDiagnosticsBottomSheet,
+            style: TextButton.styleFrom(
+              foregroundColor: isDark ? Colors.amber[300] : Colors.amber[900],
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            child: const Text(
+              'Run Diagnostics',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDiagnosticsBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E1E24) : Colors.white,
+      builder: (context) {
+        final checks = _diagnostics?['checks'] as List? ?? [];
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'CloudAgent Setup Checklist',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh_rounded),
+                      onPressed: () {
+                        _requestDiagnostics();
+                        Navigator.pop(context);
+                      },
+                      tooltip: 'Re-run Checks',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: checks.length,
+                    itemBuilder: (context, idx) {
+                      final c = checks[idx] as Map<String, dynamic>;
+                      final ok = c['ok'] ?? false;
+                      final name = c['name'] ?? '';
+                      final msg = c['message'] ?? '';
+                      return ListTile(
+                        leading: Icon(
+                          ok ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                          color: ok ? Colors.green : Colors.red,
+                        ),
+                        title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                        subtitle: Text(msg, style: TextStyle(fontSize: 11.5, color: Colors.grey[600])),
+                        contentPadding: EdgeInsets.zero,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
