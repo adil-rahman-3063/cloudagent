@@ -6,6 +6,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
+
 void main() {
   runApp(const CloudAgentApp());
 }
@@ -15,31 +17,36 @@ class CloudAgentApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'CloudAgent Workspace',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A73E8), // Google Blue
-          primary: const Color(0xFF1A73E8),
-          surface: const Color(0xFFF8F9FA), // Workspace grey background
-        ),
-        cardTheme: const CardThemeData(
-          color: Colors.white,
-          elevation: 1,
-        ),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF8AB4F8),
-          brightness: Brightness.dark,
-        ),
-      ),
-      themeMode: ThemeMode.light, // Workspace aesthetics defaults to clean light theme
-      home: const MainLayout(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (context, currentMode, child) {
+        return MaterialApp(
+          title: 'CloudAgent Workspace',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF1A73E8), // Google Blue
+              primary: const Color(0xFF1A73E8),
+              surface: const Color(0xFFF8F9FA), // Workspace grey background
+            ),
+            cardTheme: const CardThemeData(
+              color: Colors.white,
+              elevation: 1,
+            ),
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.dark,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF8AB4F8),
+              brightness: Brightness.dark,
+            ),
+          ),
+          themeMode: currentMode,
+          home: const MainLayout(),
+        );
+      },
     );
   }
 }
@@ -70,6 +77,13 @@ class _MainLayoutState extends State<MainLayout> {
   List<String> _suggestedCommands = [];
   List<Map<String, dynamic>> _sessions = [];
   Map<String, dynamic>? _diagnostics;
+  
+  // Dashboard & Configuration states
+  Map<String, dynamic>? _dashboardData;
+  bool _isLoadingDashboard = false;
+  Map<String, dynamic>? _configData;
+  bool _widgetsEnabled = true;
+  String _themeMode = 'system';
   
   // Pending confirmation state
   Map<String, dynamic>? _pendingConfirmation;
@@ -218,15 +232,26 @@ class _MainLayoutState extends State<MainLayout> {
           debugPrint('Session ID: $_sessionId');
           _gwsEmail = data['gwsUserEmail'] ?? '';
           _currentModel = data['activeModel'] ?? '';
+          _widgetsEnabled = data['widgetsEnabled'] ?? true;
+          _themeMode = data['theme'] ?? 'system';
+          _updateAppThemeMode(_themeMode);
           _status = 'Idle';
           final sessionsData = data['sessions'];
           if (sessionsData is List) {
             _sessions = List<Map<String, dynamic>>.from(sessionsData);
           }
-          // Request diagnostics report immediately upon connection
           _requestDiagnostics();
+          _requestConfig();
+          if (_widgetsEnabled) {
+            _requestDashboard();
+          }
         } else if (type == 'diagnostics') {
           _diagnostics = data;
+        } else if (type == 'dashboard') {
+          _dashboardData = data['data'];
+          _isLoadingDashboard = false;
+        } else if (type == 'config') {
+          _configData = data['config'];
         } else if (type == 'history') {
           _sessionId = data['sessionId'] ?? '';
           _messages.clear();
@@ -394,6 +419,41 @@ class _MainLayoutState extends State<MainLayout> {
     _webSocketChannel!.sink.add(jsonEncode({
       'type': 'get_diagnostics'
     }));
+  }
+
+  void _requestDashboard() {
+    if (_webSocketChannel == null) return;
+    setState(() {
+      _isLoadingDashboard = true;
+    });
+    _webSocketChannel!.sink.add(jsonEncode({
+      'type': 'get_dashboard'
+    }));
+  }
+
+  void _requestConfig() {
+    if (_webSocketChannel == null) return;
+    _webSocketChannel!.sink.add(jsonEncode({
+      'type': 'get_config'
+    }));
+  }
+
+  void _saveConfig(Map<String, dynamic> updatePayload) {
+    if (_webSocketChannel == null) return;
+    _webSocketChannel!.sink.add(jsonEncode({
+      'type': 'update_config',
+      ...updatePayload
+    }));
+  }
+
+  void _updateAppThemeMode(String mode) {
+    if (mode == 'light') {
+      themeNotifier.value = ThemeMode.light;
+    } else if (mode == 'dark') {
+      themeNotifier.value = ThemeMode.dark;
+    } else {
+      themeNotifier.value = ThemeMode.system;
+    }
   }
 
   void _switchSession(String targetSessionId) {
@@ -631,6 +691,13 @@ class _MainLayoutState extends State<MainLayout> {
                             ),
                           ],
                         ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.settings_rounded, size: 18),
+                          onPressed: _showSettingsDialog,
+                          tooltip: 'Settings',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
                       ),
 
                       Row(
@@ -864,7 +931,7 @@ class _MainLayoutState extends State<MainLayout> {
                 // Messages List
                 Expanded(
                   child: _messages.isEmpty
-                      ? Center(
+                      ? (_widgetsEnabled ? _buildDashboard() : Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -885,7 +952,7 @@ class _MainLayoutState extends State<MainLayout> {
                               ),
                             ],
                           ),
-                        )
+                        ))
                       : ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.all(24),
@@ -1332,6 +1399,396 @@ class _MainLayoutState extends State<MainLayout> {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDashboard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    if (_isLoadingDashboard) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    final emails = _dashboardData?['emails'] as List? ?? [];
+    final events = _dashboardData?['events'] as List? ?? [];
+    final tasks = _dashboardData?['tasks'] as List? ?? [];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Welcome to CloudAgent',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Here is a quick overview of your Google Workspace status:',
+            style: TextStyle(
+              fontSize: 13.5,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final useVertical = constraints.maxWidth < 700;
+              if (useVertical) {
+                return Column(
+                  children: [
+                    _buildDashboardCard('Recent Emails', Icons.email_outlined, Colors.red[400]!, _buildEmailWidgetList(emails)),
+                    const SizedBox(height: 16),
+                    _buildDashboardCard('Upcoming Meetings', Icons.calendar_today_outlined, Colors.blue[400]!, _buildEventWidgetList(events)),
+                    const SizedBox(height: 16),
+                    _buildDashboardCard('Pending Tasks', Icons.check_circle_outline_rounded, Colors.green[400]!, _buildTaskWidgetList(tasks)),
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildDashboardCard('Recent Emails', Icons.email_outlined, Colors.red[400]!, _buildEmailWidgetList(emails)),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildDashboardCard('Upcoming Meetings', Icons.calendar_today_outlined, Colors.blue[400]!, _buildEventWidgetList(events)),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildDashboardCard('Pending Tasks', Icons.check_circle_outline_rounded, Colors.green[400]!, _buildTaskWidgetList(tasks)),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardCard(String title, IconData icon, Color color, Widget content) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E24) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? Colors.grey[900]! : Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          content,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmailWidgetList(List emails) {
+    if (emails.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(child: Text('No unread emails', style: TextStyle(fontSize: 12, color: Colors.grey))),
+      );
+    }
+    return Column(
+      children: emails.map((item) {
+        final subject = item['subject'] ?? 'No Subject';
+        final from = item['from'] ?? 'Unknown Sender';
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                subject,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                from,
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const Divider(height: 12),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildEventWidgetList(List events) {
+    if (events.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(child: Text('No upcoming events', style: TextStyle(fontSize: 12, color: Colors.grey))),
+      );
+    }
+    return Column(
+      children: events.map((item) {
+        final summary = item['summary'] ?? 'Meeting';
+        final start = item['start'] ?? '';
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                summary,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                start,
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const Divider(height: 12),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildTaskWidgetList(List tasks) {
+    if (tasks.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(child: Text('No pending tasks', style: TextStyle(fontSize: 12, color: Colors.grey))),
+      );
+    }
+    return Column(
+      children: tasks.map((item) {
+        final title = item['title'] ?? 'Task';
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.circle_outlined, size: 12, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12.5),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 12),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _showSettingsDialog() {
+    if (_configData == null) {
+      _requestConfig();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Loading settings from server...')),
+      );
+      return;
+    }
+
+    final providers = ['openrouter', 'openai', 'gemini', 'anthropic'];
+    String activeProvider = _configData!['active_provider'] ?? 'openrouter';
+    String activeModel = _configData!['active_model'] ?? '';
+    bool widgetsEnabled = _widgetsEnabled;
+    String theme = _themeMode;
+
+    final keyControllers = <String, TextEditingController>{};
+    for (const prov in providers) {
+      final key = _configData!['providers']?[prov]?['api_key'] ?? '';
+      keyControllers[prov] = TextEditingController(text: key);
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              title: const Text('CloudAgent Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+              content: SizedBox(
+                width: 480,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Active LLM Provider', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: activeProvider,
+                        decoration: const InputDecoration(border: OutlineInputBorder()),
+                        items: providers.map((p) => DropdownMenuItem(value: p, child: Text(p.toUpperCase()))).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setModalState(() {
+                              activeProvider = val;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      const Text('Active Model Name', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        initialValue: activeModel,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          hintText: 'e.g. google/gemini-2.5-flash',
+                        ),
+                        onChanged: (val) {
+                          activeModel = val.trim();
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Enable Workspace Dashboard Widgets', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Switch(
+                            value: widgetsEnabled,
+                            onChanged: (val) {
+                              setModalState(() {
+                                widgetsEnabled = val;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      const Text('App Theme Mode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: theme,
+                        decoration: const InputDecoration(border: OutlineInputBorder()),
+                        items: const [
+                          DropdownMenuItem(value: 'system', child: Text('System Default')),
+                          DropdownMenuItem(value: 'light', child: Text('Light Mode')),
+                          DropdownMenuItem(value: 'dark', child: Text('Dark Mode')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setModalState(() {
+                              theme = val;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 20),
+
+                      const Divider(),
+                      const SizedBox(height: 12),
+                      const Text('API Keys Configuration', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      const SizedBox(height: 12),
+
+                      ...providers.map((prov) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: TextFormField(
+                            controller: keyControllers[prov],
+                            decoration: InputDecoration(
+                              labelText: '${prov.toUpperCase()} API Key',
+                              border: const OutlineInputBorder(),
+                              obscureText: true,
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final keysPayload = <String, dynamic>{};
+                    for (const prov in providers) {
+                      keysPayload[prov] = {
+                        'api_key': keyControllers[prov]!.text.trim()
+                      };
+                    }
+
+                    _saveConfig({
+                      'activeProvider': activeProvider,
+                      'activeModel': activeModel,
+                      'widgetsEnabled': widgetsEnabled,
+                      'theme': theme,
+                      'providers': keysPayload,
+                    });
+
+                    setState(() {
+                      _widgetsEnabled = widgetsEnabled;
+                      _themeMode = theme;
+                      _currentModel = activeModel;
+                      _updateAppThemeMode(theme);
+                      
+                      if (_widgetsEnabled) {
+                        _requestDashboard();
+                      } else {
+                        _dashboardData = null;
+                      }
+                    });
+
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Save Settings'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
