@@ -45,6 +45,13 @@ This document outlines key technical decisions, implementations, and setup detai
    - **Robust Command Parsing**: Utilizes `parseCommandArgs` in the CLI rather than a naive regex split, ensuring single-quote apostrophes (e.g. `you're`, `there's`) inside double-quoted string parameters do not cause argument truncation.
    - **Windows Direct Execution**: Avoids `cmd.exe /c` wrapping for `gws` on Windows by dynamically locating the absolute path of the global `@googleworkspace/cli/run.js` module and invoking it directly with `node`. This prevents `cmd.exe` from truncating multiline strings (like emails with newlines) at the first newline character.
 
+7. **Flutter Client (Desktop App)**:
+   - Resides under `cloudagent_flutter/` and targets Windows desktop environments.
+   - Connects to the local server via a local WebSocket channel (`ws://127.0.0.1:3020`).
+   - **Dynamic Path Resolution**: Utilizes `kReleaseMode`. In development, it spawns `node` pointing to the parent folder's server scripts. In production, it targets a bundled `backend/` folder alongside the executable (`Platform.resolvedExecutable`), allowing complete self-contained deployment inside a single release zip.
+   - **Smooth Transition Animations**: Integrates `AnimatedSwitcher` to transition with a slide-and-fade animation from the dashboard view to the chat workspace view as soon as the user starts typing or clicks a shortcut suggestion.
+   - **In-Widget Loading States**: Keeps the dashboard layout visible by embedding local progress indicators inside individual dashboard widgets during fetches instead of showing a blocking loading overlay.
+
 ---
 
 ## 🚀 Git Remote Setup
