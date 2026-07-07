@@ -64,6 +64,7 @@ class _MainLayoutState extends State<MainLayout> {
   String _toolThought = '';
   String _gwsEmail = '';
   String _sessionId = '';
+  List<String> _suggestedCommands = [];
   
   // Pending confirmation state
   Map<String, dynamic>? _pendingConfirmation;
@@ -261,6 +262,7 @@ class _MainLayoutState extends State<MainLayout> {
         'text': text
       });
       _messageController.clear();
+      _suggestedCommands = [];
       _scrollToBottom();
     });
 
@@ -268,6 +270,64 @@ class _MainLayoutState extends State<MainLayout> {
       'type': 'message',
       'text': text
     }));
+  }
+
+  void _onInputChanged(String val) {
+    setState(() {
+      if (val == '/') {
+        _suggestedCommands = ['/help', '/sheets', '/docs', '/contacts', '/models', '/clear'];
+      } else if (val.startsWith('/')) {
+        final query = val.toLowerCase();
+        _suggestedCommands = ['/help', '/sheets', '/docs', '/contacts', '/models', '/clear']
+            .where((cmd) => cmd.startsWith(query))
+            .toList();
+      } else {
+        _suggestedCommands = [];
+      }
+    });
+  }
+
+  void _handleSuggestionClick(String cmd) {
+    setState(() {
+      if (cmd == '/help') {
+        _messageController.text = 'help';
+        _suggestedCommands = [];
+        _sendMessage();
+      } else if (cmd == '/clear') {
+        _messageController.clear();
+        _suggestedCommands = [];
+        _messages.clear();
+        _messages.add({'sender': 'system', 'text': 'Chat history cleared locally.'});
+      } else if (cmd == '/sheets') {
+        _suggestedCommands = [
+          'Create a new sheet named "test"',
+          'Read range Sheet1!A1:B10 of "sheet-name"',
+          'Append "John,35" to sheet "data-sheet"'
+        ];
+        _messageController.text = '';
+      } else if (cmd == '/docs') {
+        _suggestedCommands = [
+          'Create a new doc named "notes"',
+          'Read document "notes"',
+          'Append "done" to document "notes"'
+        ];
+        _messageController.text = '';
+      } else if (cmd == '/contacts') {
+        _suggestedCommands = [
+          'List my contacts',
+          'Search contacts for "John"',
+          'Create contact "Bob Smith" bob@example.com'
+        ];
+        _messageController.text = '';
+      } else if (cmd == '/models') {
+        _messageController.text = '/models';
+        _suggestedCommands = [];
+        _sendMessage();
+      } else {
+        _messageController.text = cmd;
+        _suggestedCommands = [];
+      }
+    });
   }
 
   void _sendConfirmation(bool approved) {
@@ -672,6 +732,9 @@ class _MainLayoutState extends State<MainLayout> {
                 if (_pendingConfirmation != null)
                   _buildConfirmationCard(context),
 
+                // Suggestions Panel
+                _buildSuggestionsPanel(),
+
                 // Message Input Panel
                 Container(
                   decoration: BoxDecoration(
@@ -700,6 +763,7 @@ class _MainLayoutState extends State<MainLayout> {
                           ),
                           child: TextField(
                             controller: _messageController,
+                            onChanged: _onInputChanged,
                             onSubmitted: (_) => _sendMessage(),
                             enabled: _status != 'Connecting' && _status != 'Running Tool' && _pendingConfirmation == null,
                             decoration: InputDecoration(
@@ -856,6 +920,38 @@ class _MainLayoutState extends State<MainLayout> {
             ],
           )
         ],
+      ),
+    );
+  }
+
+  Widget _buildSuggestionsPanel() {
+    if (_suggestedCommands.isEmpty) return const SizedBox.shrink();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      color: isDark ? const Color(0xFF1E1E24) : Colors.white,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        children: _suggestedCommands.map((cmd) {
+          final isSlashCmd = cmd.startsWith('/');
+          return ActionChip(
+            label: Text(cmd),
+            onPressed: () => _handleSuggestionClick(cmd),
+            backgroundColor: isSlashCmd 
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)
+                : (isDark ? Colors.grey[850] : Colors.grey[200]),
+            labelStyle: TextStyle(
+              fontSize: 12.5,
+              color: isSlashCmd ? Theme.of(context).colorScheme.primary : (isDark ? Colors.grey[300] : Colors.grey[800]),
+              fontWeight: isSlashCmd ? FontWeight.bold : FontWeight.normal,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          );
+        }).toList(),
       ),
     );
   }

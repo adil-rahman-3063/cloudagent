@@ -21,6 +21,49 @@ const args = process.argv.slice(2);
 // Global status cache
 let gwsUserEmail = '';
 
+export function getHelpText() {
+  return `🤖 **CloudAgent Capabilities & Tools**
+
+Here is what I can do to help you in your workspace:
+
+📧 **Gmail**
+- **List emails**: Search and list recent emails. (e.g., "List my unread emails")
+- **Read emails**: View details of specific threads. (e.g., "Read the email about the project launch")
+- **Send emails**: Compose and send new emails. (e.g., "Send email to bob@example.com")
+
+📂 **Google Drive**
+- **Search files**: Query documents or folders. (e.g., "Find spreadsheets modified last week")
+- **Download/Upload**: Download files locally or upload local files.
+- **Delete files**: Delete Drive files securely.
+
+📊 **Google Sheets**
+- **Read cells**: Fetch data from a range. (e.g., "Read range Sheet1!A1:B10 of my-sheet")
+- **Append rows**: Add new rows. (e.g., "Append 'John,35' to sheet data-sheet")
+- **Update cells**: Modify cell values.
+- **Create sheets**: Create new spreadsheets.
+
+📄 **Google Docs**
+- **Read documents**: Fetch text content. (e.g., "Read document notes")
+- **Write/Append**: Add text content. (e.g., "Append 'done' to notes")
+- **Create docs**: Create new documents.
+- **Delete docs**: Delete documents.
+
+👥 **Google Contacts (People)**
+- **List/Search**: View connections or query details.
+- **Create/Update/Delete**: Manage your contact listings.
+
+📅 **Google Calendar & Tasks**
+- **Events**: List or create calendar meetings.
+- **Tasks**: List, create, or update to-do items.
+
+🌿 **Git & GitHub**
+- **Git commands**: Status, commit, push, pull.
+- **Repositories**: Initialize and upload repositories to GitHub.
+
+💻 **Local Filesystem**
+- List, read, write, and delete local files/directories.`;
+}
+
 function displayHelp() {
   console.log(chalk.bold.cyan('\n🛠️  CloudAgent Capabilities & Tools'));
   console.log(chalk.dim('Here is what I can do to help you in your workspace:\n'));
@@ -603,7 +646,19 @@ async function main() {
       try {
         const input = JSON.parse(line);
         if (input.type === 'message') {
-          await runAgentStepJSON(sessionId, input.text);
+          const text = input.text.trim();
+          if (text === '/help' || text === 'help' || text.toLowerCase() === 'what can i do' || text.toLowerCase() === 'what can you do') {
+            const helpText = getHelpText();
+            console.log(JSON.stringify({ type: 'message', sender: 'agent', text: helpText }));
+            saveMessage(sessionId, 'assistant', helpText);
+          } else if (text.startsWith('/models')) {
+            const config = readConfig();
+            const modelsMsg = `⚙️ **Switch Active Provider / Model**\nCurrent Active Model: **${config.active_provider}** (${config.active_model})\n\nTo switch provider or model, please configure it by running \`cloudagent config\` in your terminal or modify \`config.json\` inside your home directory under \`.cloudagent/\`.`;
+            console.log(JSON.stringify({ type: 'message', sender: 'agent', text: modelsMsg }));
+            saveMessage(sessionId, 'assistant', modelsMsg);
+          } else {
+            await runAgentStepJSON(sessionId, text);
+          }
         } else if (input.type === 'confirm') {
           if (global.pendingConfirmationResolve) {
             global.pendingConfirmationResolve(input.approved);
