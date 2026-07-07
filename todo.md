@@ -51,7 +51,5 @@ This file tracks the testing status of all CloudAgent capabilities.
 
 - [ ] **Future Roadmap (Additional gws Services)**
   - [x] **Google Sheets**: Read, write, and append spreadsheet tables.
-  - [ ] **Google Keep**: Manage and sync Keep notes.
-  - [ ] **Google Docs**: Read and write Google Document files.
-  - [ ] **Google People**: Retrieve and search contacts.
-
+  - [x] **Google Docs**: Read, write, create, and delete document files.
+  - [x] **Google People (Contacts)**: List, search, create, update, and delete contacts.

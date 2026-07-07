@@ -8,6 +8,8 @@ import { gitStatus, gitPull, gitCommit, gitPush, githubRepoCreate } from './tool
 import { fileList, fileRead, fileWrite, fileDelete, fileCd, fileFindProjects, resolveSmartPath } from './tools/filesystem.js';
 import { tasksList, tasksCreate, tasksUpdate } from './tools/tasks.js';
 import { sheetsRead, sheetsAppend, sheetsUpdate, sheetsCreate } from './tools/sheets.js';
+import { docsRead, docsWrite, docsCreate, docsDelete } from './tools/docs.js';
+import { contactsList, contactsSearch, contactsCreate, contactsUpdate, contactsDelete } from './tools/people.js';
 import { logToolRun, updateToolRun } from './db.js';
 
 // Registry holding all tools
@@ -39,7 +41,16 @@ export const REGISTRY = {
   sheets_read: sheetsRead,
   sheets_append: sheetsAppend,
   sheets_update: sheetsUpdate,
-  sheets_create: sheetsCreate
+  sheets_create: sheetsCreate,
+  docs_read: docsRead,
+  docs_write: docsWrite,
+  docs_create: docsCreate,
+  docs_delete: docsDelete,
+  contacts_list: contactsList,
+  contacts_search: contactsSearch,
+  contacts_create: contactsCreate,
+  contacts_update: contactsUpdate,
+  contacts_delete: contactsDelete
 };
 
 // Returns schemas for the AI prompt, filtered dynamically by history context keywords/categories
@@ -59,6 +70,8 @@ export function getToolsSchema(history = []) {
     else if (combinedText.includes('category: filesystem')) categories.push('file');
     else if (combinedText.includes('category: git')) categories.push('git', 'github');
     else if (combinedText.includes('category: sheets')) categories.push('sheets');
+    else if (combinedText.includes('category: docs')) categories.push('docs');
+    else if (combinedText.includes('category: contacts')) categories.push('contacts');
 
     // Natural language keyword checks (only if no explicit category tag was matched yet)
     if (categories.length === 0) {
@@ -69,15 +82,18 @@ export function getToolsSchema(history = []) {
       if (/\b(file|folder|directory|cd|path|filesystem|read|write|delete)\b/.test(combinedText)) categories.push('file');
       if (/\b(git|github|repo|repository|commit|push|pull|clone|merge)\b/.test(combinedText)) categories.push('git', 'github');
       if (/\b(sheet|sheets|spreadsheet|spreadsheets|row|rows|cell|cells|column|columns)\b/.test(combinedText)) categories.push('sheets');
+      if (/\b(doc|docs|document|documents|google\s+doc)\b/.test(combinedText)) categories.push('docs');
+      if (/\b(contact|contacts|people|person|phone|email\s+address|emailaddresses|phonenumbers)\b/.test(combinedText)) categories.push('contacts');
     }
   }
 
-  // Cross-link drive and sheets categories because spreadsheets are drive files
-  if (categories.includes('sheets') && !categories.includes('drive')) {
+  // Cross-link drive, sheets, and docs categories because they are all drive files
+  if ((categories.includes('sheets') || categories.includes('docs')) && !categories.includes('drive')) {
     categories.push('drive');
   }
-  if (categories.includes('drive') && !categories.includes('sheets')) {
-    categories.push('sheets');
+  if (categories.includes('drive')) {
+    if (!categories.includes('sheets')) categories.push('sheets');
+    if (!categories.includes('docs')) categories.push('docs');
   }
 
   // Filter tools list based on identified categories
@@ -127,17 +143,28 @@ export async function executeTool(toolName, args, sessionId, silent = false) {
       console.log(`Tool: ${chalk.bold(toolName)}`);
       console.log(`Arguments:\n${chalk.cyan(JSON.stringify(args, null, 2))}`);
     }
-    
-    const response = await prompts({
-      type: 'confirm',
-      name: 'value',
-      message: isWarning 
-        ? chalk.red('Approve this high-risk action?') 
-        : (toolName === 'file_cd' ? 'Allow access to navigate to this directory?' : 'Approve execution?'),
-      initial: !isWarning
-    });
-    
-    approved = response.value;
+    if (global.jsonStreamMode) {
+      console.log(JSON.stringify({
+        type: 'confirm',
+        tool: toolName,
+        arguments: args,
+        risk: tool.risk
+      }));
+      approved = await new Promise((resolve) => {
+        global.pendingConfirmationResolve = resolve;
+      });
+      global.pendingConfirmationResolve = null;
+    } else {
+      const response = await prompts({
+        type: 'confirm',
+        name: 'value',
+        message: isWarning 
+          ? chalk.red('Approve this high-risk action?') 
+          : (toolName === 'file_cd' ? 'Allow access to navigate to this directory?' : 'Approve execution?'),
+        initial: !isWarning
+      });
+      approved = response.value;
+    }
   }
 
   if (!approved) {

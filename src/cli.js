@@ -44,6 +44,24 @@ function displayHelp() {
   console.log(`  - ${chalk.green('Read cells')}: Fetch data from a spreadsheet range. (e.g., "Read range Sheet1!A1:B10 of my-sheet")`);
   console.log(`  - ${chalk.green('Append rows')}: Add new rows to a spreadsheet. (e.g., "Append 'John,35' to sheet data-sheet")`);
   console.log(`  - ${chalk.green('Update cells')}: Modify cell values. (e.g., "Set range A1 to 'Updated' in sheet-file")`);
+  console.log(`  - ${chalk.green('Create sheets')}: Create a new Google Sheet. (e.g., "Make a new sheet named test")`);
+  console.log('');
+
+  // 2c. Docs
+  console.log(chalk.bold.cyan('📄 Google Docs'));
+  console.log(`  - ${chalk.green('Read documents')}: Fetch text content. (e.g., "Read document notes")`);
+  console.log(`  - ${chalk.green('Write/Append text')}: Add text content. (e.g., "Append 'done' to my document docs-file")`);
+  console.log(`  - ${chalk.green('Create documents')}: Create a new Google Doc. (e.g., "Create a new document called notes")`);
+  console.log(`  - ${chalk.green('Delete documents')}: Delete a Google Doc. (e.g., "Delete doc notes")`);
+  console.log('');
+
+  // 2d. People (Contacts)
+  console.log(chalk.bold.yellow('👥 Google People (Contacts)'));
+  console.log(`  - ${chalk.green('List contacts')}: Fetch contact lists. (e.g., "List my contacts")`);
+  console.log(`  - ${chalk.green('Search contacts')}: Query contacts. (e.g., "Search contacts for John")`);
+  console.log(`  - ${chalk.green('Create contacts')}: Add new contacts. (e.g., "Create contact Bob Smith bob@example.com")`);
+  console.log(`  - ${chalk.green('Update contacts')}: Edit contact details. (e.g., "Update Bob Smith's phone to 12345")`);
+  console.log(`  - ${chalk.green('Delete contacts')}: Remove contacts. (e.g., "Delete contact Bob Smith")`);
   console.log('');
 
   // 3. Calendar
@@ -80,6 +98,9 @@ function displayHelp() {
   console.log(`  - ${chalk.cyan('/help')} or ${chalk.cyan('what can i do')}: Print this capabilities screen.`);
   console.log(`  - ${chalk.cyan('/models')}: Switch active provider and model directly from the chat.`);
   console.log(`  - ${chalk.cyan('/doctor')}: Run environment diagnostic checks.`);
+  console.log(`  - ${chalk.cyan('/sheets')}: Load interactive Google Sheets submenu.`);
+  console.log(`  - ${chalk.cyan('/docs')}: Load interactive Google Docs submenu.`);
+  console.log(`  - ${chalk.cyan('/contacts')}: Load interactive Google People (Contacts) submenu.`);
   console.log(`  - ${chalk.cyan('/send')}: Directly send an email without LLM parsing (e.g., \`/send email@example.com "subject" "body"\`).`);
   console.log(`  - ${chalk.cyan('/exit')}: Safely terminate the CLI loop.`);
   console.log('');
@@ -250,6 +271,21 @@ async function handleInteractiveSubmenu(service, sessionId) {
       { title: '✏️  Update spreadsheet cell values (sheets_update)', value: 'sheets_update' },
       { title: '➕ Create new spreadsheet (sheets_create)', value: 'sheets_create' }
     );
+  } else if (service === 'docs') {
+    subchoices.push(
+      { title: '📖 Read Google Doc content (docs_read)', value: 'docs_read' },
+      { title: '✏️  Append text to Google Doc (docs_write)', value: 'docs_write' },
+      { title: '➕ Create new Google Doc (docs_create)', value: 'docs_create' },
+      { title: '❌ Delete a Google Doc (docs_delete)', value: 'docs_delete' }
+    );
+  } else if (service === 'contacts') {
+    subchoices.push(
+      { title: '📋 List Google Contacts (contacts_list)', value: 'contacts_list' },
+      { title: '🔍 Search Google Contacts (contacts_search)', value: 'contacts_search' },
+      { title: '➕ Create new Google Contact (contacts_create)', value: 'contacts_create' },
+      { title: '✏️  Update Google Contact (contacts_update)', value: 'contacts_update' },
+      { title: '❌ Delete Google Contact (contacts_delete)', value: 'contacts_delete' }
+    );
   }
 
   subchoices.push(
@@ -307,7 +343,16 @@ async function handleInteractiveSubmenu(service, sessionId) {
     sheets_read: 'Read cell values from a specified Google Sheets spreadsheet range.',
     sheets_append: 'Append a row of values to the end of a Google Sheets spreadsheet.',
     sheets_update: 'Set cell values in a specified Google Sheets range.',
-    sheets_create: 'Create a new Google Sheets spreadsheet with a specified title.'
+    sheets_create: 'Create a new Google Sheets spreadsheet with a specified title.',
+    docs_read: 'Read the plain text content of a specified Google Docs document.',
+    docs_write: 'Append text content to the end of a specified Google Docs document.',
+    docs_create: 'Create a new Google Docs document with a specified title.',
+    docs_delete: 'Permanently delete a specified Google Docs document.',
+    contacts_list: 'List my Google Contacts (connections). Format the output using clean conversational bullet points. Do NOT output markdown tables, raw JSON, or box-drawing characters.',
+    contacts_search: 'Search my Google Contacts by query term.',
+    contacts_create: 'Create a new Google Contact.',
+    contacts_update: 'Update details of an existing Google Contact.',
+    contacts_delete: 'Delete a Google Contact.'
   };
 
   return promptMappings[subSelect.action] || `Execute ${subSelect.action} tool`;
@@ -323,6 +368,8 @@ async function handleInteractiveMenu(sessionId) {
         { title: '📧 Gmail (Emails)', value: 'gmail' },
         { title: '📁 Google Drive', value: 'drive' },
         { title: '📊 Google Sheets (Spreadsheets)', value: 'sheets' },
+        { title: '📄 Google Docs (Documents)', value: 'docs' },
+        { title: '👥 Google People (Contacts)', value: 'contacts' },
         { title: '📅 Google Calendar', value: 'calendar' },
         { title: '✅ Google Tasks', value: 'tasks' },
         { title: '💻 Local Filesystem', value: 'filesystem' },
@@ -391,10 +438,10 @@ function drawDashboard() {
 
   const rightRows = [
     chalk.bold(' Available Capabilities:'),
-    ` ${chalk.cyan('•')} Gmail (read, send, labels)`,
-    ` ${chalk.cyan('•')} Google Drive & Local FS`,
-    ` ${chalk.cyan('•')} Google Calendar (agenda)`,
-    ` ${chalk.cyan('•')} Google Tasks & Git/GitHub`
+    ` ${chalk.cyan('•')} Gmail & Contacts (People)`,
+    ` ${chalk.cyan('•')} Google Drive, Sheets & Docs`,
+    ` ${chalk.cyan('•')} Google Calendar & Tasks`,
+    ` ${chalk.cyan('•')} Local FS & Git/GitHub`
   ];
 
   console.log(chalk.cyan(borderTop));
@@ -406,20 +453,168 @@ function drawDashboard() {
   console.log(chalk.cyan(borderBottom));
 }
 
-function stopSpinner(state) {
-  if (state.intervalId) {
-    clearInterval(state.intervalId);
-    state.intervalId = null;
-  }
-  if (state.spinner) {
-    state.spinner.stop();
-    state.spinner = null;
+async function runAgentStepJSON(sessionId, userPrompt) {
+  saveMessage(sessionId, 'user', userPrompt);
+  console.log(JSON.stringify({ type: 'status', status: 'thinking' }));
+  
+  try {
+    const history = getSessionMessages(sessionId);
+    const tools = getToolsSchema(history);
+
+    const response = await askAgent(history, tools, (modelName) => {
+      console.log(JSON.stringify({ type: 'status', status: 'thinking', model: modelName }));
+    });
+
+    if (response.tool) {
+      saveMessage(sessionId, 'assistant', JSON.stringify({
+        thought: response.thought,
+        tool: response.tool,
+        arguments: response.arguments
+      }));
+
+      console.log(JSON.stringify({ type: 'status', status: 'running_tool', tool: response.tool, thought: response.thought }));
+
+      const toolResult = await executeTool(response.tool, response.arguments || {}, sessionId, true);
+      
+      if (toolResult.success) {
+        saveMessage(sessionId, 'assistant', JSON.stringify({ 
+          status: 'success', 
+          tool: response.tool, 
+          output: toolResult.output 
+        }));
+
+        const ACTION_TOOLS = [
+          'gmail_send',
+          'gmail_modify_labels',
+          'drive_download',
+          'drive_upload',
+          'calendar_create',
+          'tasks_create',
+          'tasks_update',
+          'file_write',
+          'file_delete',
+          'git_pull',
+          'git_commit',
+          'git_push',
+          'github_repo_create'
+        ];
+        const isActionTool = ACTION_TOOLS.includes(response.tool);
+
+        const historyMsgs = getSessionMessages(sessionId);
+        const firstUserMsg = historyMsgs.find(m => m.role === 'user');
+        const userPromptText = firstUserMsg ? firstUserMsg.content.toLowerCase() : '';
+        const hasActionKeywords = 
+          userPromptText.includes('download') ||
+          userPromptText.includes('send') ||
+          userPromptText.includes('email') ||
+          userPromptText.includes('mail') ||
+          userPromptText.includes('write') ||
+          userPromptText.includes('create') ||
+          userPromptText.includes('delete') ||
+          userPromptText.includes('update') ||
+          userPromptText.includes('complete') ||
+          userPromptText.includes('mark');
+
+        const isMultiStep = !isActionTool && hasActionKeywords;
+
+        if (isActionTool || !isMultiStep) {
+          let agentText = tryFormatSuccess(response.tool, toolResult.output);
+          if (response.tool === 'drive_download') {
+            const lines = toolResult.output.split('\n');
+            const pathLine = lines.find(l => l.includes('Verified local download path:'));
+            agentText = pathLine ? `File downloaded successfully!\n${pathLine}` : `File downloaded successfully!`;
+          }
+          console.log(JSON.stringify({ type: 'message', sender: 'agent', text: agentText }));
+          saveMessage(sessionId, 'assistant', agentText);
+          return;
+        }
+
+        await runAgentStepJSON(sessionId, `Tool execution success for ${response.tool}. [System Instruction: The tool has executed successfully. Please present the result to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`);
+      } else {
+        saveMessage(sessionId, 'assistant', JSON.stringify({ 
+          status: 'failed', 
+          tool: response.tool, 
+          error: toolResult.error 
+        }));
+        
+        if (toolResult.error === 'Execution rejected by user') {
+          console.log(JSON.stringify({ type: 'message', sender: 'agent', text: 'Tool execution rejected by user.' }));
+          return;
+        }
+        
+        await runAgentStepJSON(sessionId, `Tool execution failed for ${response.tool}: ${toolResult.error} [System Instruction: The tool execution failed. Please report the error to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`);
+      }
+    } else if (response.text) {
+      console.log(JSON.stringify({ type: 'message', sender: 'agent', text: response.text }));
+      saveMessage(sessionId, 'assistant', response.text);
+    } else if (response.thought) {
+      saveMessage(sessionId, 'assistant', JSON.stringify({ thought: response.thought }));
+      await runAgentStepJSON(sessionId, "You only provided a 'thought'. Please output a valid JSON containing either a 'tool' to execute or a 'text' response for the user.");
+    } else {
+      console.log(JSON.stringify({ type: 'error', error: 'Received invalid or empty response format from AI.' }));
+    }
+  } catch (error) {
+    console.log(JSON.stringify({ type: 'error', error: error.message }));
   }
 }
 
 async function main() {
   // Ensure DB and directories are configured
   initDatabase();
+
+  const jsonStreamMode = args.includes('--json-stream');
+  global.jsonStreamMode = jsonStreamMode;
+
+  if (jsonStreamMode) {
+    setWorkspaceAllowed(true);
+    const sessionArgIdx = args.indexOf('--session');
+    let sessionId = '';
+    if (sessionArgIdx !== -1 && args[sessionArgIdx + 1]) {
+      sessionId = args[sessionArgIdx + 1];
+    } else {
+      const lastSession = getLastSession();
+      sessionId = lastSession ? lastSession.id : 'session_' + Date.now();
+    }
+    const sessions = getSessions();
+    if (!sessions.some(s => s.id === sessionId)) {
+      createSession(sessionId);
+    }
+
+    try {
+      const statusOutput = execSync('gws auth status', { stdio: 'pipe' }).toString();
+      const statusObj = JSON.parse(statusOutput);
+      if (statusObj && (statusObj.token_valid === true || statusObj.status === 'success')) {
+        gwsUserEmail = statusObj.user || statusObj.account || '';
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    console.log(JSON.stringify({ type: 'session', sessionId, workspace: process.cwd(), gwsUserEmail }));
+
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: false
+    });
+
+    for await (const line of rl) {
+      if (!line.trim()) continue;
+      try {
+        const input = JSON.parse(line);
+        if (input.type === 'message') {
+          await runAgentStepJSON(sessionId, input.text);
+        } else if (input.type === 'confirm') {
+          if (global.pendingConfirmationResolve) {
+            global.pendingConfirmationResolve(input.approved);
+          }
+        }
+      } catch (e) {
+        console.log(JSON.stringify({ type: 'error', error: 'Invalid JSON input: ' + e.message }));
+      }
+    }
+    process.exit(0);
+  }
 
   if (args[0] === 'doctor') {
     const success = await runDiagnostics();
@@ -668,7 +863,7 @@ async function main() {
     if (prompt.startsWith('/')) {
       const parts = prompt.split(' ');
       const cmd = parts[0].substring(1).toLowerCase();
-      const categories = ['gmail', 'drive', 'calendar', 'tasks', 'filesystem', 'git'];
+      const categories = ['gmail', 'drive', 'calendar', 'tasks', 'filesystem', 'git', 'sheets', 'docs', 'contacts'];
       if (categories.includes(cmd)) {
         const selectedPrompt = await handleInteractiveSubmenu(cmd, sessionId);
         if (!selectedPrompt) continue;
@@ -854,6 +1049,20 @@ async function main() {
 
     if (prompt === '/sheets') {
       const selectedPrompt = await handleInteractiveSubmenu('sheets', sessionId);
+      if (!selectedPrompt) continue;
+      prompt = selectedPrompt;
+      isMenuTriggered = true;
+    }
+
+    if (prompt === '/docs') {
+      const selectedPrompt = await handleInteractiveSubmenu('docs', sessionId);
+      if (!selectedPrompt) continue;
+      prompt = selectedPrompt;
+      isMenuTriggered = true;
+    }
+
+    if (prompt === '/contacts') {
+      const selectedPrompt = await handleInteractiveSubmenu('contacts', sessionId);
       if (!selectedPrompt) continue;
       prompt = selectedPrompt;
       isMenuTriggered = true;

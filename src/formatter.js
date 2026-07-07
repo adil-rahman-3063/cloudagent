@@ -203,6 +203,34 @@ export function tryFormatSuccess(toolName, stdout) {
       const id = resObj.spreadsheetId || '';
       return chalk.green(`✓ Google Sheet "${name}" created successfully! (ID: ${id})`);
     }
+    if (toolName === 'docs_read') {
+      return tryFormatDocsRead(stdout);
+    }
+    if (toolName === 'docs_write') {
+      return chalk.green('✓ Text appended to Google Doc successfully!');
+    }
+    if (toolName === 'docs_create') {
+      const title = resObj.title || 'Untitled Document';
+      const id = resObj.documentId || '';
+      return chalk.green(`✓ Google Doc "${title}" created successfully! (ID: ${id})`);
+    }
+    if (toolName === 'docs_delete') {
+      return chalk.green(stdout);
+    }
+    if (toolName === 'contacts_list' || toolName === 'contacts_search') {
+      return tryFormatContactsList(stdout);
+    }
+    if (toolName === 'contacts_create') {
+      const name = resObj.names?.[0]?.displayName || 'Unnamed Contact';
+      return chalk.green(`✓ Google Contact "${name}" created successfully!`);
+    }
+    if (toolName === 'contacts_update') {
+      const name = resObj.names?.[0]?.displayName || 'Unnamed Contact';
+      return chalk.green(`✓ Google Contact "${name}" updated successfully!`);
+    }
+    if (toolName === 'contacts_delete') {
+      return chalk.green(stdout);
+    }
 
     // Universal JSON Formatter Fallback
     if (resObj && typeof resObj === 'object') {
@@ -259,6 +287,43 @@ export function tryFormatSheetsRead(stdout) {
     });
 
     return formatBoxedTable(`Google Sheets Range: ${data.range || ''}`, headers, rows);
+  } catch (e) {
+    return stdout;
+  }
+}
+
+export function tryFormatDocsRead(stdout) {
+  try {
+    const data = JSON.parse(stdout);
+    return `\n${chalk.bold.cyan(`📄 Google Doc: ${data.title || 'Untitled'}`)}\n${chalk.dim('─'.repeat(40))}\n${data.content || chalk.dim('(empty document)')}\n${chalk.dim('─'.repeat(40))}`;
+  } catch (e) {
+    return stdout;
+  }
+}
+
+export function tryFormatContactsList(stdout) {
+  try {
+    const data = JSON.parse(stdout);
+    let people = [];
+    if (data.connections) {
+      people = data.connections;
+    } else if (data.results) {
+      people = data.results.map(r => r.person);
+    }
+
+    if (people.length === 0) {
+      return chalk.dim('\n(no contacts found)');
+    }
+
+    let output = `\n${chalk.bold.cyan('👥 Google Contacts:')}\n`;
+    for (const p of people) {
+      const name = p.names?.[0]?.displayName || 'Unnamed';
+      const email = p.emailAddresses?.[0]?.value || chalk.dim('N/A');
+      const phone = p.phoneNumbers?.[0]?.value || chalk.dim('N/A');
+      const resourceName = p.resourceName || '';
+      output += `  - ${chalk.bold(name)} | ${email} | ${phone} | ${chalk.dim(resourceName)}\n`;
+    }
+    return output;
   } catch (e) {
     return stdout;
   }

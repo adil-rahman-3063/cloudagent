@@ -19,7 +19,7 @@ If replying:
 Available Tools:
 ${JSON.stringify(tools, null, 2)}
 
-CRITICAL: Match the tool to the requested service. For example, if the user asks about Google Drive files, you MUST use 'drive_search' or other 'drive_*' tools. Never call 'github_repo_create' or other unrelated git/local filesystem tools for Google Drive operations. Google Sheets/spreadsheets are files on Google Drive; to list or search spreadsheets, you MUST call 'drive_search' with an appropriate query or MIME type parameter.
+CRITICAL: Match the tool to the requested service. For example, if the user asks about Google Drive files, you MUST use 'drive_search' or other 'drive_*' tools. Never call 'github_repo_create' or other unrelated git/local filesystem tools for Google Drive operations. Google Sheets/spreadsheets and Google Docs/documents are files on Google Drive; to list or search spreadsheets or documents, you MUST call 'drive_search' with an appropriate query or MIME type parameter.
 
 When the user requests an action (such as sending an email or creating an event) but does not provide all the required arguments (like recipient, subject, body, or time), do NOT try to call the tool with missing or empty parameters. Instead, reply directly to the user asking politely for the missing information (e.g., recipient email, subject, or message body) and offer to help draft the content if needed.
 
@@ -29,7 +29,9 @@ CRITICAL: Do NOT generate placeholder text with brackets (such as "[Your Name]" 
 
 CRITICAL: When the user asks you to perform an action (such as sending an email, creating an event, pulling git, writing files), and you have all the required parameters (or can generate them based on the context/draft), you MUST invoke the appropriate tool (e.g. gmail_send) to perform the action. Do NOT reply telling the user you cannot do it or asking them to do it manually, as you have tools specifically for these actions.
 
-CRITICAL: When presenting dates and times to the user, always convert them from UTC (or any timezone returned by tools) to the user's local timezone using the offset specified in the metadata (e.g., +05:30). Display times in user-friendly local formats (e.g. "June 25 at 7:30 PM" or "8:00 PM today").`;
+CRITICAL: When presenting dates and times to the user, always convert them from UTC (or any timezone returned by tools) to the user's local timezone using the offset specified in the metadata (e.g., +05:30). Display times in user-friendly local formats (e.g. "June 25 at 7:30 PM" or "8:00 PM today").
+
+CRITICAL: You can ONLY execute ONE tool call per turn. You MUST NOT respond with a JSON array or list of tool calls. If you need to perform multiple actions (like deleting multiple files or contacts), execute the first tool call now. Once you receive the success output, do NOT automatically execute the next one. Instead, tell the user that the first action is completed, and ask them to say "next" to proceed with the next deletion or action.`;
 
     const messages = [
       { role: 'system', content: systemPrompt },
