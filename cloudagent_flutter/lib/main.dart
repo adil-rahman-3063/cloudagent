@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 void main() {
   runApp(const CloudAgentApp());
@@ -65,6 +66,7 @@ class _MainLayoutState extends State<MainLayout> {
   String _gwsEmail = '';
   String _sessionId = '';
   List<String> _suggestedCommands = [];
+  List<Map<String, dynamic>> _sessions = [];
   
   // Pending confirmation state
   Map<String, dynamic>? _pendingConfirmation;
@@ -182,6 +184,24 @@ class _MainLayoutState extends State<MainLayout> {
           debugPrint('Session ID: $_sessionId');
           _gwsEmail = data['gwsUserEmail'] ?? '';
           _status = 'Idle';
+          final sessionsData = data['sessions'];
+          if (sessionsData is List) {
+            _sessions = List<Map<String, dynamic>>.from(sessionsData);
+          }
+        } else if (type == 'history') {
+          _sessionId = data['sessionId'] ?? '';
+          _messages.clear();
+          final historyMsgs = data['messages'];
+          if (historyMsgs is List) {
+            for (final m in historyMsgs) {
+              _messages.add({
+                'sender': m['sender'] ?? 'agent',
+                'text': m['text'] ?? ''
+              });
+            }
+          }
+          _status = 'Idle';
+          _scrollToBottom();
         } else if (type == 'status') {
           final statusVal = data['status'];
           if (statusVal == 'thinking') {
@@ -328,6 +348,21 @@ class _MainLayoutState extends State<MainLayout> {
         _suggestedCommands = [];
       }
     });
+  }
+
+  void _switchSession(String targetSessionId) {
+    if (_cliProcess == null) return;
+    _cliProcess!.stdin.writeln(jsonEncode({
+      'type': 'switch_session',
+      'sessionId': targetSessionId,
+    }));
+  }
+
+  void _startNewSession() {
+    if (_cliProcess == null) return;
+    _cliProcess!.stdin.writeln(jsonEncode({
+      'type': 'new_session',
+    }));
   }
 
   void _sendConfirmation(bool approved) {
@@ -499,6 +534,82 @@ class _MainLayoutState extends State<MainLayout> {
                           ],
                         ),
                       ),
+
+                      const SizedBox(height: 24),
+                      
+                      const Text(
+                        'PAST CONVERSATIONS',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 8),
+
+                      OutlinedButton.icon(
+                        onPressed: _startNewSession,
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: const Text('New Session', style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      if (_sessions.isEmpty)
+                        Text(
+                          'No past conversations',
+                          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                        ),
+
+                      ..._sessions.map((s) {
+                        final isSelected = s['id'] == _sessionId;
+                        final name = s['name'] ?? s['id'];
+                        return Container(
+                          margin: const EdgeInsets.symmetric(vertical: 2),
+                          child: InkWell(
+                            onTap: () => _switchSession(s['id']),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected 
+                                    ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.chat_bubble_outline_rounded,
+                                    size: 14,
+                                    color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[500],
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                        color: isSelected ? Theme.of(context).colorScheme.primary : null,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -714,12 +825,25 @@ class _MainLayoutState extends State<MainLayout> {
                                       ? null 
                                       : Border.all(color: isDark ? Colors.grey[900]! : Colors.grey[200]!),
                                 ),
-                                child: SelectableText(
-                                  msg['text'] ?? '',
-                                  style: TextStyle(
-                                    color: isUser ? Colors.white : (isDark ? Colors.grey[200] : Colors.black87),
-                                    fontSize: 14.5,
-                                    height: 1.45,
+                                child: MarkdownBody(
+                                  data: msg['text'] ?? '',
+                                  selectable: true,
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: TextStyle(
+                                      color: isUser ? Colors.white : (isDark ? Colors.grey[200] : Colors.black87),
+                                      fontSize: 14.5,
+                                      height: 1.45,
+                                    ),
+                                    code: TextStyle(
+                                      fontFamily: 'monospace',
+                                      backgroundColor: isUser 
+                                          ? Colors.white.withValues(alpha: 0.15) 
+                                          : (isDark ? Colors.black26 : Colors.grey[200]),
+                                      fontSize: 13,
+                                    ),
+                                    listBullet: TextStyle(
+                                      color: isUser ? Colors.white : (isDark ? Colors.grey[300] : Colors.black87),
+                                    ),
                                   ),
                                 ),
                               ),
