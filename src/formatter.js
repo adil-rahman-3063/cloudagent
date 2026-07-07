@@ -11,40 +11,27 @@ export function formatBoxedTable(title, headers, rows) {
     return chalk.yellow(`\n📦 ${title}\n(No records found)`);
   }
 
-  // Calculate column widths based on longest values
-  const colWidths = headers.map((h, i) => {
-    let max = h.length;
-    for (const r of rows) {
-      const val = String(r[i] || '');
-      if (val.length > max) max = val.length;
-    }
-    return max;
-  });
-
-  const topBorder = chalk.blue('┌' + colWidths.map(w => '─'.repeat(w + 2)).join('┬') + '┐');
-  const headerLine = chalk.blue('│') + headers.map((h, i) => ' ' + chalk.bold.cyan(h.padEnd(colWidths[i])) + ' ').join(chalk.blue('│')) + chalk.blue('│');
-  const dividerLine = chalk.blue('├' + colWidths.map(w => '─'.repeat(w + 2)).join('┼') + '┤');
-  const bottomBorder = chalk.blue('└' + colWidths.map(w => '─'.repeat(w + 2)).join('┴') + '┘');
-
   const output = [];
   output.push(chalk.bold.yellow(`\n📁  ${title}`));
-  output.push(topBorder);
-  output.push(headerLine);
-  output.push(dividerLine);
 
   for (const row of rows) {
-    const formattedRow = ' ' + row.map((cell, i) => {
-      const text = String(cell || '').padEnd(colWidths[i]);
-      // Apply different colors based on header type
-      if (headers[i].toLowerCase() === 'id') return chalk.dim(text);
-      if (headers[i].toLowerCase() === 'date' || headers[i].toLowerCase() === 'time') return chalk.green(text);
-      return text;
-    }).join(' ' + chalk.blue('│') + ' ');
-    
-    output.push(chalk.blue('│') + formattedRow + ' ' + chalk.blue('│'));
+    const itemParts = [];
+    for (let i = 0; i < headers.length; i++) {
+      const headerName = headers[i];
+      let val = String(row[i] || '').trim();
+      if (!val) continue;
+      
+      if (headerName.toLowerCase() === 'id') {
+        itemParts.push(`${chalk.dim(headerName)}: ${chalk.dim(val)}`);
+      } else if (headerName.toLowerCase() === 'date' || headerName.toLowerCase() === 'time') {
+        itemParts.push(`${chalk.bold(headerName)}: ${chalk.green(val)}`);
+      } else {
+        itemParts.push(`${chalk.bold(headerName)}: ${val}`);
+      }
+    }
+    output.push(`  - ${itemParts.join('  •  ')}`);
   }
 
-  output.push(bottomBorder);
   return output.join('\n');
 }
 
