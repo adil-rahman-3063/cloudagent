@@ -386,7 +386,7 @@ class _MainLayoutState extends State<MainLayout> {
                       _buildSidebarCard(
                         title: 'GOOGLE WORKSPACE',
                         icon: Icons.account_circle_rounded,
-                        iconColor: _gwsEmail.isNotEmpty ? Colors.blue[600] : Colors.red[600]!,
+                        iconColor: _gwsEmail.isNotEmpty ? Colors.blue[600]! : Colors.red[600]!,
                         content: Text(
                           _gwsEmail.isNotEmpty ? _gwsEmail : 'Not Logged In',
                           style: TextStyle(
