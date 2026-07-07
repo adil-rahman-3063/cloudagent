@@ -1773,7 +1773,9 @@ async function handleConfigSubcommand() {
   }
 }
 
-main().catch(err => {
-  console.error(chalk.red(err.stack));
-  process.exit(1);
-});
+if (process.argv[1] && (process.argv[1].endsWith('cli.js') || process.argv[1].endsWith('cloudagent') || process.argv[1].endsWith('cloudagent.js'))) {
+  main().catch(err => {
+    console.error(chalk.red(err.stack));
+    process.exit(1);
+  });
+}
