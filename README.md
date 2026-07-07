@@ -67,6 +67,22 @@ cloudagent
 
 ---
 
+## Flutter Client (Desktop App)
+
+CloudAgent features a premium, responsive Flutter-based desktop interface located under the `cloudagent_flutter/` directory.
+
+- **Responsive Dashboard**: Displays key summaries of recent unread emails, upcoming meetings, and pending tasks at a glance.
+- **In-Widget Loading States**: Displays elegant inline loading indicators inside individual widget cards during data refreshes, maintaining dashboard layout visibility.
+- **Smooth Transition Animations**: Automatically transitions with a fluid slide-and-fade animation from the dashboard view to the chat workspace view the moment you start typing or interact with workspace actions.
+
+To run the Flutter app locally:
+```bash
+cd cloudagent_flutter
+flutter run -d windows
+```
+
+---
+
 ## Production Readiness
 
 CloudAgent is ready for production environments:

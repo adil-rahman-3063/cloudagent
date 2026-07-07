@@ -77,6 +77,7 @@ class _MainLayoutState extends State<MainLayout> {
   List<String> _suggestedCommands = [];
   List<Map<String, dynamic>> _sessions = [];
   Map<String, dynamic>? _diagnostics;
+  bool _inChatView = false;
   
   // Dashboard & Configuration states
   Map<String, dynamic>? _dashboardData;
@@ -263,6 +264,9 @@ class _MainLayoutState extends State<MainLayout> {
                 'text': m['text'] ?? ''
               });
             }
+            if (historyMsgs.isNotEmpty) {
+              _inChatView = true;
+            }
           }
           _status = 'Idle';
           _scrollToBottom();
@@ -284,6 +288,7 @@ class _MainLayoutState extends State<MainLayout> {
             'sender': data['sender'] ?? 'agent',
             'text': data['text'] ?? ''
           });
+          _inChatView = true;
           _scrollToBottom();
         } else if (type == 'confirm') {
           _pendingConfirmation = {
@@ -347,6 +352,7 @@ class _MainLayoutState extends State<MainLayout> {
       });
       _messageController.clear();
       _suggestedCommands = [];
+      _inChatView = true;
       _scrollToBottom();
     });
 
@@ -358,6 +364,11 @@ class _MainLayoutState extends State<MainLayout> {
 
   void _onInputChanged(String val) {
     setState(() {
+      if (val.isNotEmpty) {
+        _inChatView = true;
+      } else if (val.isEmpty && _messages.isEmpty) {
+        _inChatView = false;
+      }
       if (val == '/') {
         _suggestedCommands = ['/help', '/sheets', '/docs', '/contacts', '/models', '/clear'];
       } else if (val.startsWith('/')) {
@@ -373,6 +384,7 @@ class _MainLayoutState extends State<MainLayout> {
 
   void _handleSuggestionClick(String cmd) {
     setState(() {
+      _inChatView = true;
       if (cmd == '/help') {
         _messageController.text = 'help';
         _suggestedCommands = [];
@@ -382,6 +394,7 @@ class _MainLayoutState extends State<MainLayout> {
         _suggestedCommands = [];
         _messages.clear();
         _messages.add({'sender': 'system', 'text': 'Chat history cleared locally.'});
+        _inChatView = false;
       } else if (cmd == '/sheets') {
         _suggestedCommands = [
           'Create a new sheet named "test"',
@@ -856,7 +869,7 @@ class _MainLayoutState extends State<MainLayout> {
                     color: isDark ? const Color(0xFF1E1E24) : Colors.white,
                     border: Border(
                       bottom: BorderSide(
-                        color: isDark ? Colors.grey[950]! : Colors.grey[200]!,
+                        color: isDark ? Colors.grey[900]! : Colors.grey[200]!,
                       ),
                     ),
                   ),
@@ -938,125 +951,150 @@ class _MainLayoutState extends State<MainLayout> {
 
                 // Messages List
                 Expanded(
-                  child: _messages.isEmpty
-                      ? (_widgetsEnabled ? _buildDashboard() : Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.chat_bubble_outline_rounded,
-                                size: 54,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 18),
-                              const Text(
-                                'Start a conversation with CloudAgent',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Ask to check emails, create sheets, list calendar events, or search files.',
-                                style: TextStyle(color: Colors.grey[500], fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ))
-                      : ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.all(24),
-                          itemCount: _messages.length,
-                          itemBuilder: (context, index) {
-                            final msg = _messages[index];
-                            final isUser = msg['sender'] == 'user';
-                            final isSystem = msg['sender'] == 'system';
-                            
-                            if (isSystem) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 10.0),
-                                child: Center(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: isDark ? Colors.grey[900] : const Color(0xFFE9ECEF),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      msg['text'] ?? '',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDark ? Colors.grey[400] : Colors.grey[700],
-                                        fontFamily: 'monospace',
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-
-                            return Align(
-                              alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                              child: Container(
-                                constraints: BoxConstraints(
-                                  maxWidth: MediaQuery.of(context).size.width * 0.65,
-                                ),
-                                margin: const EdgeInsets.symmetric(vertical: 8),
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                                decoration: BoxDecoration(
-                                  gradient: isUser
-                                      ? LinearGradient(
-                                          colors: [
-                                            Theme.of(context).colorScheme.primary,
-                                            Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        )
-                                      : null,
-                                  color: isUser
-                                      ? null
-                                      : (isDark ? const Color(0xFF1E1E24) : Colors.white),
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: const Radius.circular(20),
-                                    topRight: const Radius.circular(20),
-                                    bottomLeft: Radius.circular(isUser ? 20 : 4),
-                                    bottomRight: Radius.circular(isUser ? 4 : 20),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 3),
-                                    )
-                                  ],
-                                  border: isUser 
-                                      ? null 
-                                      : Border.all(color: isDark ? Colors.grey[900]! : Colors.grey[200]!),
-                                ),
-                                child: MarkdownBody(
-                                  data: msg['text'] ?? '',
-                                  selectable: true,
-                                  styleSheet: MarkdownStyleSheet(
-                                    p: TextStyle(
-                                      color: isUser ? Colors.white : (isDark ? Colors.grey[200] : Colors.black87),
-                                      fontSize: 14.5,
-                                      height: 1.45,
-                                    ),
-                                    code: TextStyle(
-                                      fontFamily: 'monospace',
-                                      backgroundColor: isUser 
-                                          ? Colors.white.withValues(alpha: 0.15) 
-                                          : (isDark ? Colors.black26 : Colors.grey[200]),
-                                      fontSize: 13,
-                                    ),
-                                    listBullet: TextStyle(
-                                      color: isUser ? Colors.white : (isDark ? Colors.grey[300] : Colors.black87),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400),
+                    switchInCurve: Curves.easeInOutCubic,
+                    switchOutCurve: Curves.easeInOutCubic,
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.05),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: child,
                         ),
+                      );
+                    },
+                    child: (!_inChatView && _widgetsEnabled)
+                        ? KeyedSubtree(
+                            key: const ValueKey('dashboard_view'),
+                            child: _buildDashboard(),
+                          )
+                        : KeyedSubtree(
+                            key: const ValueKey('chat_view'),
+                            child: _messages.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.chat_bubble_outline_rounded,
+                                          size: 54,
+                                          color: Colors.grey[400],
+                                        ),
+                                        const SizedBox(height: 18),
+                                        const Text(
+                                          'Start a conversation with CloudAgent',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Ask to check emails, create sheets, list calendar events, or search files.',
+                                          style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    controller: _scrollController,
+                                    padding: const EdgeInsets.all(24),
+                                    itemCount: _messages.length,
+                                    itemBuilder: (context, index) {
+                                      final msg = _messages[index];
+                                      final isUser = msg['sender'] == 'user';
+                                      final isSystem = msg['sender'] == 'system';
+                                      
+                                      if (isSystem) {
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 10.0),
+                                          child: Center(
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: isDark ? Colors.grey[900] : const Color(0xFFE9ECEF),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Text(
+                                                msg['text'] ?? '',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: isDark ? Colors.grey[400] : Colors.grey[700],
+                                                  fontFamily: 'monospace',
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }
+
+                                      return Align(
+                                        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                                        child: Container(
+                                          constraints: BoxConstraints(
+                                            maxWidth: MediaQuery.of(context).size.width * 0.65,
+                                          ),
+                                          margin: const EdgeInsets.symmetric(vertical: 8),
+                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                          decoration: BoxDecoration(
+                                            gradient: isUser
+                                                ? LinearGradient(
+                                                    colors: [
+                                                      Theme.of(context).colorScheme.primary,
+                                                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  )
+                                                : null,
+                                            color: isUser
+                                                ? null
+                                                : (isDark ? const Color(0xFF1E1E24) : Colors.white),
+                                            borderRadius: BorderRadius.only(
+                                              topLeft: const Radius.circular(20),
+                                              topRight: const Radius.circular(20),
+                                              bottomLeft: Radius.circular(isUser ? 20 : 4),
+                                              bottomRight: Radius.circular(isUser ? 4 : 20),
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                                                blurRadius: 6,
+                                                offset: const Offset(0, 3),
+                                              )
+                                            ],
+                                            border: isUser 
+                                                ? null 
+                                                : Border.all(color: isDark ? Colors.grey[900]! : Colors.grey[200]!),
+                                          ),
+                                          child: MarkdownBody(
+                                            data: msg['text'] ?? '',
+                                            selectable: true,
+                                            styleSheet: MarkdownStyleSheet(
+                                              p: TextStyle(
+                                                color: isUser ? Colors.white : (isDark ? Colors.grey[200] : Colors.black87),
+                                                fontSize: 14.5,
+                                                height: 1.45,
+                                              ),
+                                              code: TextStyle(
+                                                fontFamily: 'monospace',
+                                                backgroundColor: isUser 
+                                                    ? Colors.white.withValues(alpha: 0.15) 
+                                                    : (isDark ? Colors.black26 : Colors.grey[200]),
+                                                fontSize: 13,
+                                              ),
+                                              listBullet: TextStyle(
+                                                color: isUser ? Colors.white : (isDark ? Colors.grey[300] : Colors.black87),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ),
+                  ),
                 ),
 
                 // Inline Confirmation Panel
@@ -1072,7 +1110,7 @@ class _MainLayoutState extends State<MainLayout> {
                     color: isDark ? const Color(0xFF121214) : const Color(0xFFF8F9FA),
                     border: Border(
                       top: BorderSide(
-                        color: isDark ? Colors.grey[950]! : Colors.grey[200]!,
+                        color: isDark ? Colors.grey[900]! : Colors.grey[200]!,
                       ),
                     ),
                   ),
@@ -1415,15 +1453,20 @@ class _MainLayoutState extends State<MainLayout> {
   Widget _buildDashboard() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    if (_isLoadingDashboard) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
     final emails = _dashboardData?['emails'] as List? ?? [];
     final events = _dashboardData?['events'] as List? ?? [];
     final tasks = _dashboardData?['tasks'] as List? ?? [];
+
+    final loadingWidget = const Padding(
+      padding: EdgeInsets.symmetric(vertical: 24),
+      child: Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -1454,11 +1497,11 @@ class _MainLayoutState extends State<MainLayout> {
               if (useVertical) {
                 return Column(
                   children: [
-                    _buildDashboardCard('Recent Emails', Icons.email_outlined, Colors.red[400]!, _buildEmailWidgetList(emails)),
+                    _buildDashboardCard('Recent Emails', Icons.email_outlined, Colors.red[400]!, _isLoadingDashboard ? loadingWidget : _buildEmailWidgetList(emails)),
                     const SizedBox(height: 16),
-                    _buildDashboardCard('Upcoming Meetings', Icons.calendar_today_outlined, Colors.blue[400]!, _buildEventWidgetList(events)),
+                    _buildDashboardCard('Upcoming Meetings', Icons.calendar_today_outlined, Colors.blue[400]!, _isLoadingDashboard ? loadingWidget : _buildEventWidgetList(events)),
                     const SizedBox(height: 16),
-                    _buildDashboardCard('Pending Tasks', Icons.check_circle_outline_rounded, Colors.green[400]!, _buildTaskWidgetList(tasks)),
+                    _buildDashboardCard('Pending Tasks', Icons.check_circle_outline_rounded, Colors.green[400]!, _isLoadingDashboard ? loadingWidget : _buildTaskWidgetList(tasks)),
                   ],
                 );
               }
@@ -1466,15 +1509,15 @@ class _MainLayoutState extends State<MainLayout> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: _buildDashboardCard('Recent Emails', Icons.email_outlined, Colors.red[400]!, _buildEmailWidgetList(emails)),
+                    child: _buildDashboardCard('Recent Emails', Icons.email_outlined, Colors.red[400]!, _isLoadingDashboard ? loadingWidget : _buildEmailWidgetList(emails)),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: _buildDashboardCard('Upcoming Meetings', Icons.calendar_today_outlined, Colors.blue[400]!, _buildEventWidgetList(events)),
+                    child: _buildDashboardCard('Upcoming Meetings', Icons.calendar_today_outlined, Colors.blue[400]!, _isLoadingDashboard ? loadingWidget : _buildEventWidgetList(events)),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: _buildDashboardCard('Pending Tasks', Icons.check_circle_outline_rounded, Colors.green[400]!, _buildTaskWidgetList(tasks)),
+                    child: _buildDashboardCard('Pending Tasks', Icons.check_circle_outline_rounded, Colors.green[400]!, _isLoadingDashboard ? loadingWidget : _buildTaskWidgetList(tasks)),
                   ),
                 ],
               );
@@ -1648,7 +1691,7 @@ class _MainLayoutState extends State<MainLayout> {
     String theme = _themeMode;
 
     final keyControllers = <String, TextEditingController>{};
-    for (const prov in providers) {
+    for (final prov in providers) {
       final key = _configData!['providers']?[prov]?['api_key'] ?? '';
       keyControllers[prov] = TextEditingController(text: key);
     }
@@ -1743,10 +1786,10 @@ class _MainLayoutState extends State<MainLayout> {
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: TextFormField(
                             controller: keyControllers[prov],
+                            obscureText: true,
                             decoration: InputDecoration(
                               labelText: '${prov.toUpperCase()} API Key',
                               border: const OutlineInputBorder(),
-                              obscureText: true,
                             ),
                           ),
                         );
@@ -1763,7 +1806,7 @@ class _MainLayoutState extends State<MainLayout> {
                 ElevatedButton(
                   onPressed: () {
                     final keysPayload = <String, dynamic>{};
-                    for (const prov in providers) {
+                    for (final prov in providers) {
                       keysPayload[prov] = {
                         'api_key': keyControllers[prov]!.text.trim()
                       };
