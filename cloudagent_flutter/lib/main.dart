@@ -301,61 +301,80 @@ class _MainLayoutState extends State<MainLayout> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121214) : const Color(0xFFF8F9FA),
       body: Row(
         children: [
-          // Sidebar Panel
+          // Sidebar Panel - Sleek slate aesthetic
           Container(
-            width: 280,
+            width: 290,
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-              border: Border(
-                right: BorderSide(
-                  color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
-                  width: 1,
-                ),
-              ),
+              color: isDark ? const Color(0xFF18181C) : Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(2, 0),
+                )
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header Logo
+                // Header Logo with Glow effect
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 40, 24, 20),
+                  padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.cloud_sync_rounded,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 32,
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.cloud_sync_rounded,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 28,
+                        ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 14),
                       const Text(
                         'CloudAgent',
                         style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: -0.5,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Divider(),
+                
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Divider(height: 1),
+                ),
                 
                 // Workspace info
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                     children: [
-                      // Active directory
-                      _buildSidebarSection(
+                      // Active directory Card
+                      _buildSidebarCard(
                         title: 'WORKSPACE DIRECTORY',
+                        icon: Icons.folder_open_rounded,
+                        iconColor: Colors.amber[700]!,
                         content: Text(
                           _workspacePath ?? 'Not Selected',
-                          style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
+                          style: TextStyle(
+                            fontSize: 12, 
+                            fontFamily: 'monospace',
+                            color: isDark ? Colors.grey[300] : Colors.grey[700],
+                          ),
                         ),
                         trailing: IconButton(
-                          icon: const Icon(Icons.folder_open_rounded, size: 20),
+                          icon: const Icon(Icons.edit_note_rounded, size: 20),
                           onPressed: _selectWorkspace,
                           tooltip: 'Choose Workspace Directory',
                         ),
@@ -363,48 +382,45 @@ class _MainLayoutState extends State<MainLayout> {
                       
                       const SizedBox(height: 16),
                       
-                      // GWS Account
-                      _buildSidebarSection(
+                      // GWS Account Card
+                      _buildSidebarCard(
                         title: 'GOOGLE WORKSPACE',
-                        content: Row(
-                          children: [
-                            Icon(
-                              Icons.account_circle_outlined,
-                              size: 16,
-                              color: _gwsEmail.isNotEmpty ? Colors.green : Colors.red,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _gwsEmail.isNotEmpty ? _gwsEmail : 'Not Logged In',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: _gwsEmail.isNotEmpty ? null : Colors.red,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                        icon: Icons.account_circle_rounded,
+                        iconColor: _gwsEmail.isNotEmpty ? Colors.blue[600] : Colors.red[600]!,
+                        content: Text(
+                          _gwsEmail.isNotEmpty ? _gwsEmail : 'Not Logged In',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: _gwsEmail.isNotEmpty 
+                                ? (isDark ? Colors.green[300] : Colors.green[800]) 
+                                : Colors.red[600],
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
 
                       const SizedBox(height: 16),
 
-                      // Model
+                      // Model Card
                       if (_currentModel.isNotEmpty)
-                        _buildSidebarSection(
+                        _buildSidebarCard(
                           title: 'ACTIVE MODEL',
+                          icon: Icons.psychology_rounded,
+                          iconColor: Colors.deepPurple[600]!,
                           content: Text(
                             _currentModel,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                           ),
                         ),
 
                       const SizedBox(height: 16),
 
-                      // Connection Status
-                      _buildSidebarSection(
+                      // Connection Status Card
+                      _buildSidebarCard(
                         title: 'SERVICE STATUS',
+                        icon: Icons.network_ping_rounded,
+                        iconColor: _getStatusColor(_status),
                         content: Row(
                           children: [
                             Container(
@@ -418,7 +434,7 @@ class _MainLayoutState extends State<MainLayout> {
                             const SizedBox(width: 8),
                             Text(
                               _status,
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -429,7 +445,7 @@ class _MainLayoutState extends State<MainLayout> {
                 
                 // Sidebar Footer
                 Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(20.0),
                   child: Row(
                     children: [
                       const Text(
@@ -437,11 +453,15 @@ class _MainLayoutState extends State<MainLayout> {
                         style: TextStyle(fontSize: 11, color: Colors.grey),
                       ),
                       const Spacer(),
-                      if (_status == 'Disconnected')
-                        TextButton.icon(
+                      if (_status == 'Disconnected' || _status == 'Error')
+                        ElevatedButton.icon(
                           onPressed: _startProcess,
-                          icon: const Icon(Icons.refresh, size: 16),
-                          label: const Text('Reconnect', style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.refresh, size: 14),
+                          label: const Text('Reconnect', style: TextStyle(fontSize: 11)),
                         ),
                     ],
                   ),
@@ -454,6 +474,52 @@ class _MainLayoutState extends State<MainLayout> {
           Expanded(
             child: Column(
               children: [
+                // Clean Top header
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E1E24) : Colors.white,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: isDark ? Colors.grey[950]! : Colors.grey[200]!,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.dashboard_customize_rounded, color: Colors.grey[600], size: 20),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Workspace Session',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.grey[300] : Colors.grey[800],
+                        ),
+                      ),
+                      const Spacer(),
+                      if (_status == 'Thinking')
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            children: [
+                              SizedBox(
+                                width: 10,
+                                height: 10,
+                                child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.orange),
+                              ),
+                              SizedBox(width: 6),
+                              Text('Thinking...', style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+
                 // Active tool indicator header if executing a tool
                 if (_status == 'Running Tool' && _activeTool.isNotEmpty)
                   Container(
@@ -463,8 +529,8 @@ class _MainLayoutState extends State<MainLayout> {
                     child: Row(
                       children: [
                         const SizedBox(
-                          width: 16,
-                          height: 16,
+                          width: 14,
+                          height: 14,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                           ),
@@ -501,18 +567,18 @@ class _MainLayoutState extends State<MainLayout> {
                             children: [
                               Icon(
                                 Icons.chat_bubble_outline_rounded,
-                                size: 48,
+                                size: 54,
                                 color: Colors.grey[400],
                               ),
-                              const SizedBox(height: 16),
-                              Text(
+                              const SizedBox(height: 18),
+                              const Text(
                                 'Start a conversation with CloudAgent',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 15),
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 'Ask to check emails, create sheets, list calendar events, or search files.',
-                                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                                style: TextStyle(color: Colors.grey[500], fontSize: 13),
                               ),
                             ],
                           ),
@@ -528,19 +594,19 @@ class _MainLayoutState extends State<MainLayout> {
                             
                             if (isSystem) {
                               return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                padding: const EdgeInsets.symmetric(vertical: 10.0),
                                 child: Center(
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                                     decoration: BoxDecoration(
-                                      color: isDark ? Colors.grey[850] : Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(16),
+                                      color: isDark ? Colors.grey[900] : const Color(0xFFE9ECEF),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
                                       msg['text'] ?? '',
                                       style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                        fontSize: 11,
+                                        color: isDark ? Colors.grey[400] : Colors.grey[700],
                                         fontFamily: 'monospace',
                                       ),
                                     ),
@@ -553,36 +619,47 @@ class _MainLayoutState extends State<MainLayout> {
                               alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                               child: Container(
                                 constraints: BoxConstraints(
-                                  maxWidth: MediaQuery.of(context).size.width * 0.6,
+                                  maxWidth: MediaQuery.of(context).size.width * 0.65,
                                 ),
-                                margin: const EdgeInsets.symmetric(vertical: 6),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                margin: const EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                                 decoration: BoxDecoration(
+                                  gradient: isUser
+                                      ? LinearGradient(
+                                          colors: [
+                                            Theme.of(context).colorScheme.primary,
+                                            Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        )
+                                      : null,
                                   color: isUser
-                                      ? Theme.of(context).colorScheme.primary
-                                      : (isDark ? const Color(0xFF2C2C2C) : Colors.white),
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: const Radius.circular(16),
-                                    topRight: const Radius.circular(16),
-                                    bottomLeft: Radius.circular(isUser ? 16 : 4),
-                                    bottomRight: Radius.circular(isUser ? 4 : 16),
-                                  ),
-                                  boxShadow: isUser
                                       ? null
-                                      : [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.03),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 2),
-                                          )
-                                        ],
+                                      : (isDark ? const Color(0xFF1E1E24) : Colors.white),
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: const Radius.circular(20),
+                                    topRight: const Radius.circular(20),
+                                    bottomLeft: Radius.circular(isUser ? 20 : 4),
+                                    bottomRight: Radius.circular(isUser ? 4 : 20),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 3),
+                                    )
+                                  ],
+                                  border: isUser 
+                                      ? null 
+                                      : Border.all(color: isDark ? Colors.grey[900]! : Colors.grey[200]!),
                                 ),
                                 child: SelectableText(
                                   msg['text'] ?? '',
                                   style: TextStyle(
-                                    color: isUser ? Colors.white : (isDark ? Colors.white : Colors.black87),
-                                    fontSize: 14,
-                                    height: 1.4,
+                                    color: isUser ? Colors.white : (isDark ? Colors.grey[200] : Colors.black87),
+                                    fontSize: 14.5,
+                                    height: 1.45,
                                   ),
                                 ),
                               ),
@@ -590,28 +667,6 @@ class _MainLayoutState extends State<MainLayout> {
                           },
                         ),
                 ),
-                
-                // Thinking loading indicator
-                if (_status == 'Thinking')
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                    child: Row(
-                      children: [
-                        const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Agent is thinking...',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                        ),
-                      ],
-                    ),
-                  ),
 
                 // Inline Confirmation Panel
                 if (_pendingConfirmation != null)
@@ -619,35 +674,54 @@ class _MainLayoutState extends State<MainLayout> {
 
                 // Message Input Panel
                 Container(
-                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF121214) : const Color(0xFFF8F9FA),
+                    border: Border(
+                      top: BorderSide(
+                        color: isDark ? Colors.grey[950]! : Colors.grey[200]!,
+                      ),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   child: Row(
                     children: [
                       Expanded(
-                        child: TextField(
-                          controller: _messageController,
-                          onSubmitted: (_) => _sendMessage(),
-                          enabled: _status != 'Connecting' && _status != 'Running Tool' && _pendingConfirmation == null,
-                          decoration: InputDecoration(
-                            hintText: _pendingConfirmation != null 
-                                ? 'Please confirm or deny the requested action above...'
-                                : 'Type your workspace command (e.g. "Draft an email to Bob")',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide(
-                                color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
-                              ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1E1E24) : Colors.white,
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              )
+                            ],
+                          ),
+                          child: TextField(
+                            controller: _messageController,
+                            onSubmitted: (_) => _sendMessage(),
+                            enabled: _status != 'Connecting' && _status != 'Running Tool' && _pendingConfirmation == null,
+                            decoration: InputDecoration(
+                              hintText: _pendingConfirmation != null 
+                                  ? 'Please confirm or deny the requested action above...'
+                                  : 'Type a workspace command (e.g. "Draft an email to Bob")',
+                              hintStyle: const TextStyle(fontSize: 13.5),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                             ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            style: const TextStyle(fontSize: 14.5),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 14),
                       FloatingActionButton(
                         onPressed: _sendMessage,
-                        mini: true,
-                        elevation: 1,
-                        child: const Icon(Icons.send_rounded),
+                        elevation: 2,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        child: const Icon(Icons.send_rounded, size: 20),
                       ),
                     ],
                   ),
@@ -660,32 +734,46 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  Widget _buildSidebarSection({
+  Widget _buildSidebarCard({
     required String title,
+    required IconData icon,
+    required Color iconColor,
     required Widget content,
     Widget? trailing,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-                color: Colors.grey,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF222228) : const Color(0xFFF1F3F5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? Colors.grey[900]! : Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: iconColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                    color: Colors.grey,
+                  ),
+                ),
               ),
-            ),
-            ?trailing,
-          ],
-        ),
-        const SizedBox(height: 6),
-        content,
-      ],
+              if (trailing != null) trailing,
+            ],
+          ),
+          const SizedBox(height: 10),
+          content,
+        ],
+      ),
     );
   }
 
