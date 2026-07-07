@@ -28,6 +28,52 @@ async function resolveSpreadsheetId(spreadsheet) {
   throw new Error(`Could not resolve spreadsheet with name or ID: "${spreadsheet}"`);
 }
 
+async function resolveRangeName(spreadsheetId, range) {
+  try {
+    const args = [
+      'sheets',
+      'spreadsheets',
+      'get',
+      '--params',
+      JSON.stringify({ spreadsheetId }),
+      '--format',
+      'json'
+    ];
+    const stdout = (await execGws(args)).toString();
+    const data = JSON.parse(stdout);
+    const sheetTitles = (data.sheets || []).map(s => s.properties.title);
+    
+    let tabName = range;
+    let cellRange = '';
+    if (range.includes('!')) {
+      const parts = range.split('!');
+      tabName = parts[0];
+      cellRange = '!' + parts.slice(1).join('!');
+    }
+    
+    const cleanTab = tabName.replace(/^['"]|['"]$/g, '').trim().toLowerCase();
+    
+    // Look for exact case-insensitive match
+    let match = sheetTitles.find(t => t.toLowerCase() === cleanTab);
+    
+    // If no match, look for a fuzzy match (levenshtein or simple inclusion/misspelling heuristic)
+    if (!match) {
+      match = sheetTitles.find(t => {
+        const tLower = t.toLowerCase();
+        return tLower.includes(cleanTab) || cleanTab.includes(tLower);
+      });
+    }
+    
+    if (match) {
+      const finalTab = match.includes(' ') ? `'${match}'` : match;
+      return finalTab + cellRange;
+    }
+  } catch (e) {
+    // Fallback
+  }
+  return range;
+}
+
 export const sheetsRead = {
   name: 'sheets_read',
   description: 'Read cell values from a specified Google Sheets spreadsheet range',
@@ -43,13 +89,14 @@ export const sheetsRead = {
   async execute({ spreadsheet, range }) {
     try {
       const spreadsheetId = await resolveSpreadsheetId(spreadsheet);
+      const resolvedRange = await resolveRangeName(spreadsheetId, range);
       const args = [
         'sheets',
         '+read',
         '--spreadsheet',
         spreadsheetId,
         '--range',
-        range,
+        resolvedRange,
         '--format',
         'json'
       ];
