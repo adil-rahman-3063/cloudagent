@@ -19,6 +19,28 @@ import { execSync } from 'child_process';
 
 const PORT = process.env.PORT || 3020;
 
+const activeSockets = new Map();
+
+global.wsConfirmHandler = (sId, toolName, args, risk) => {
+  const ws = activeSockets.get(sId);
+  if (!ws) return Promise.resolve(false);
+
+  ws.send(JSON.stringify({
+    type: 'confirm',
+    sessionId: sId,
+    tool: toolName,
+    arguments: args,
+    risk: risk
+  }));
+
+  return new Promise((resolve) => {
+    if (!global.pendingConfirmResolvers) {
+      global.pendingConfirmResolvers = new Map();
+    }
+    global.pendingConfirmResolvers.set(sId, resolve);
+  });
+};
+
 export function startServer() {
   initDatabase();
   
@@ -49,6 +71,10 @@ export function startServer() {
       currentSessions.push({ id: sessionId, name: 'New Chat', updated_at: new Date().toISOString() });
     }
 
+    // Map active sockets
+    activeSockets.set(sessionId, ws);
+    currentSessions.forEach(s => activeSockets.set(s.id, ws));
+
     // Get active provider & model from config
     const config = readConfig();
     const activeModel = config.active_model || 'google/gemini-2.5-flash';
@@ -69,7 +95,14 @@ export function startServer() {
       try {
         const input = JSON.parse(message);
         
-        if (input.type === 'message') {
+        if (input.type === 'confirm') {
+          const sId = input.sessionId || sessionId;
+          const resolve = global.pendingConfirmResolvers?.get(sId);
+          if (resolve) {
+            resolve(input.approved === true);
+            global.pendingConfirmResolvers.delete(sId);
+          }
+        } else if (input.type === 'message') {
           const text = (input.text || '').trim();
           if (!text) return;
 
@@ -245,6 +278,16 @@ Title:`;
 
     ws.on('close', () => {
       console.log('🔌 Client disconnected');
+      for (const [sId, socket] of activeSockets.entries()) {
+        if (socket === ws) {
+          activeSockets.delete(sId);
+          const resolve = global.pendingConfirmResolvers?.get(sId);
+          if (resolve) {
+            resolve(false);
+            global.pendingConfirmResolvers.delete(sId);
+          }
+        }
+      }
     });
   });
 }

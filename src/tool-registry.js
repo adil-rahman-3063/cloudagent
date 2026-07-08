@@ -143,7 +143,9 @@ export async function executeTool(toolName, args, sessionId, silent = false) {
       console.log(`Tool: ${chalk.bold(toolName)}`);
       console.log(`Arguments:\n${chalk.cyan(JSON.stringify(args, null, 2))}`);
     }
-    if (global.jsonStreamMode) {
+    if (typeof global.wsConfirmHandler === 'function') {
+      approved = await global.wsConfirmHandler(sessionId, toolName, args, tool.risk);
+    } else if (global.jsonStreamMode) {
       console.log(JSON.stringify({
         type: 'confirm',
         tool: toolName,
