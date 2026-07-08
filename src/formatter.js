@@ -39,6 +39,7 @@ export function tryFormatGmail(stdout) {
   try {
     const data = JSON.parse(stdout);
     const messages = data.messages || [];
+    messages.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     const headers = ['Date', 'From', 'Subject', 'ID'];
     const rows = messages.map(m => [
       truncate(m.date, 25),
@@ -106,6 +107,7 @@ export function tryFormatCalendar(stdout) {
   try {
     const data = JSON.parse(stdout);
     const events = data.events || [];
+    events.sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
     const headers = ['Time', 'Calendar', 'Summary'];
     const rows = events.map(e => [
       truncate(e.start, 25),
@@ -122,6 +124,11 @@ export function tryFormatTasks(stdout) {
   try {
     const data = JSON.parse(stdout);
     const items = data.items || [];
+    items.sort((a, b) => {
+      if (!a.due) return 1;
+      if (!b.due) return -1;
+      return new Date(a.due) - new Date(b.due);
+    });
     const headers = ['Due Date', 'Title', 'Status', 'ID'];
     const rows = items.map(t => [
       truncate(t.due ? t.due.split('T')[0] : 'No Due Date', 15),

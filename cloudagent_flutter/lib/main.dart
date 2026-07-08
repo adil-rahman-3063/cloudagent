@@ -79,6 +79,63 @@ class _MainLayoutState extends State<MainLayout> {
   Map<String, dynamic>? _diagnostics;
   bool _inChatView = false;
   
+  // Concurrent session maps
+  final Map<String, List<Map<String, dynamic>>> _sessionMessages = {};
+  final Map<String, String> _sessionStatuses = {};
+  final Map<String, String> _sessionActiveTools = {};
+  final Map<String, String> _sessionToolThoughts = {};
+  final Map<String, Map<String, dynamic>?> _sessionConfirmations = {};
+
+  void _updateSessionState(String sId, {
+    List<Map<String, dynamic>>? messages,
+    String? status,
+    String? activeTool,
+    String? toolThought,
+    Map<String, dynamic>? pendingConfirmation,
+    bool clearConfirmation = false,
+  }) {
+    if (messages != null) {
+      _sessionMessages[sId] = messages;
+    }
+    if (status != null) {
+      _sessionStatuses[sId] = status;
+    }
+    if (activeTool != null) {
+      _sessionActiveTools[sId] = activeTool;
+    }
+    if (toolThought != null) {
+      _sessionToolThoughts[sId] = toolThought;
+    }
+    if (pendingConfirmation != null) {
+      _sessionConfirmations[sId] = pendingConfirmation;
+    } else if (clearConfirmation) {
+      _sessionConfirmations[sId] = null;
+    }
+
+    if (sId == _sessionId) {
+      setState(() {
+        if (messages != null) {
+          _messages.clear();
+          _messages.addAll(messages);
+        }
+        if (status != null) {
+          _status = status;
+        }
+        if (activeTool != null) {
+          _activeTool = activeTool;
+        }
+        if (toolThought != null) {
+          _toolThought = toolThought;
+        }
+        if (pendingConfirmation != null) {
+          _pendingConfirmation = pendingConfirmation;
+        } else if (clearConfirmation) {
+          _pendingConfirmation = null;
+        }
+      });
+    }
+  }
+
   // Dashboard & Configuration states
   Map<String, dynamic>? _dashboardData;
   bool _isLoadingDashboard = false;
@@ -98,8 +155,13 @@ class _MainLayoutState extends State<MainLayout> {
       _status = 'Disconnected';
       return;
     }
-    // The source code of cloudagent is the parent of the Flutter project directory
-    _cliSourcePath = Directory.current.parent.path;
+    if (kReleaseMode) {
+      final exeFile = File(Platform.resolvedExecutable);
+      _cliSourcePath = '${exeFile.parent.path}/backend';
+    } else {
+      // The source code of cloudagent is the parent of the Flutter project directory
+      _cliSourcePath = Directory.current.parent.path;
+    }
     
     // Default workspace to the user's home directory
     final home = Platform.isWindows 
@@ -226,130 +288,216 @@ class _MainLayoutState extends State<MainLayout> {
     try {
       final data = jsonDecode(line);
       final type = data['type'];
+      final msgSessionId = data['sessionId'] ?? _sessionId;
 
-      setState(() {
-        if (type == 'session') {
-          _sessionId = data['sessionId'] ?? '';
-          debugPrint('Session ID: $_sessionId');
-          _gwsEmail = data['gwsUserEmail'] ?? '';
-          _currentModel = data['activeModel'] ?? '';
-          _widgetsEnabled = data['widgetsEnabled'] ?? true;
-          _themeMode = data['theme'] ?? 'system';
-          _updateAppThemeMode(_themeMode);
+      _sessionMessages.putIfAbsent(msgSessionId, () => []);
+      _sessionStatuses.putIfAbsent(msgSessionId, () => 'Idle');
+      _sessionActiveTools.putIfAbsent(msgSessionId, () => '');
+      _sessionToolThoughts.putIfAbsent(msgSessionId, () => '');
+
+      if (type == 'session') {
+        _sessionId = data['sessionId'] ?? '';
+        debugPrint('Session ID: $_sessionId');
+        _gwsEmail = data['gwsUserEmail'] ?? '';
+        _currentModel = data['activeModel'] ?? '';
+        _widgetsEnabled = data['widgetsEnabled'] ?? true;
+        _themeMode = data['theme'] ?? 'system';
+        _updateAppThemeMode(_themeMode);
+        _sessionMessages.putIfAbsent(_sessionId, () => []);
+        _sessionStatuses[_sessionId] = 'Idle';
+        
+        setState(() {
           _status = 'Idle';
           final sessionsData = data['sessions'];
           if (sessionsData is List) {
             _sessions = List<Map<String, dynamic>>.from(sessionsData);
           }
-          _requestDiagnostics();
-          _requestConfig();
-          if (_widgetsEnabled) {
-            _requestDashboard();
-          }
-        } else if (type == 'diagnostics') {
+        });
+        _requestDiagnostics();
+        _requestConfig();
+        if (_widgetsEnabled) {
+          _requestDashboard();
+        }
+      } else if (type == 'diagnostics') {
+        setState(() {
           _diagnostics = data;
-        } else if (type == 'dashboard') {
+        });
+      } else if (type == 'dashboard') {
+        setState(() {
           _dashboardData = data['data'];
           _isLoadingDashboard = false;
-        } else if (type == 'config') {
+        });
+      } else if (type == 'config') {
+        setState(() {
           _configData = data['config'];
-        } else if (type == 'history') {
-          _sessionId = data['sessionId'] ?? '';
-          _messages.clear();
-          final historyMsgs = data['messages'];
-          if (historyMsgs is List) {
-            for (final m in historyMsgs) {
-              _messages.add({
-                'sender': m['sender'] ?? 'agent',
-                'text': m['text'] ?? ''
-              });
-            }
-            if (historyMsgs.isNotEmpty) {
+        });
+      } else if (type == 'history') {
+        final histSessionId = data['sessionId'] ?? _sessionId;
+        final historyMsgs = data['messages'];
+        final List<Map<String, dynamic>> loadedMsgs = [];
+        if (historyMsgs is List) {
+          for (final m in historyMsgs) {
+            loadedMsgs.add({
+              'sender': m['sender'] ?? 'agent',
+              'text': m['text'] ?? '',
+              'meta': m['meta']
+            });
+          }
+        }
+        _updateSessionState(histSessionId, messages: loadedMsgs, status: 'Idle');
+        if (histSessionId == _sessionId) {
+          setState(() {
+            if (loadedMsgs.isNotEmpty) {
               _inChatView = true;
             }
-          }
-          _status = 'Idle';
-          _scrollToBottom();
-        } else if (type == 'status') {
-          final statusVal = data['status'];
-          if (statusVal == 'thinking') {
-            _status = 'Thinking';
-            _currentModel = data['model'] ?? _currentModel;
-          } else if (statusVal == 'running_tool') {
-            _status = 'Running Tool';
-            _activeTool = data['tool'] ?? '';
-            _toolThought = data['thought'] ?? '';
-          } else {
-            _status = 'Idle';
-          }
-        } else if (type == 'message') {
-          _status = 'Idle';
-          _messages.add({
-            'sender': data['sender'] ?? 'agent',
-            'text': data['text'] ?? ''
           });
-          _inChatView = true;
-          _scrollToBottom();
-        } else if (type == 'confirm') {
-          _pendingConfirmation = {
-            'tool': data['tool'] ?? '',
-            'arguments': data['arguments'] ?? {},
-            'risk': data['risk'] ?? 'safe'
-          };
-          _status = 'Idle';
-          _scrollToBottom();
-        } else if (type == 'error') {
-          _status = 'Error';
-          _messages.add({
-            'sender': 'system',
-            'text': data['error'] ?? 'An unknown error occurred.'
-          });
-          _scrollToBottom();
         }
-      });
+        _scrollToBottom();
+      } else if (type == 'status') {
+        final statusVal = data['status'];
+        String mappedStatus = 'Idle';
+        String actTool = '';
+        String thoughtVal = '';
+        if (statusVal == 'thinking') {
+          mappedStatus = 'Thinking';
+        } else if (statusVal == 'running_tool') {
+          mappedStatus = 'Running Tool';
+          actTool = data['tool'] ?? '';
+          thoughtVal = data['thought'] ?? '';
+        }
+        _updateSessionState(msgSessionId, status: mappedStatus, activeTool: actTool, toolThought: thoughtVal);
+      } else if (type == 'tool_start') {
+        final list = List<Map<String, dynamic>>.from(_sessionMessages[msgSessionId] ?? []);
+        list.add({
+          'sender': 'tool',
+          'text': 'Running ${data['tool']}...',
+          'meta': {
+            'type': 'tool',
+            'name': data['tool'],
+            'arguments': data['arguments'],
+            'output': 'Running...',
+            'status': 'running',
+            'isExpanded': true
+          }
+        });
+        _updateSessionState(msgSessionId, messages: list, status: 'Running Tool', activeTool: data['tool'], toolThought: data['thought'] ?? '');
+        _scrollToBottom();
+      } else if (type == 'tool_end') {
+        final list = List<Map<String, dynamic>>.from(_sessionMessages[msgSessionId] ?? []);
+        final toolIdx = list.lastIndexWhere((m) => m['sender'] == 'tool' && m['meta']?['name'] == data['tool']);
+        if (toolIdx != -1) {
+          final toolMsg = Map<String, dynamic>.from(list[toolIdx]);
+          final meta = Map<String, dynamic>.from(toolMsg['meta'] ?? {});
+          meta['status'] = data['success'] ? 'success' : 'failed';
+          meta['output'] = data['output']?.toString() ?? '';
+          meta['isExpanded'] = false; // Auto-collapse
+          toolMsg['meta'] = meta;
+          toolMsg['text'] = 'Executed ${data['tool']}';
+          list[toolIdx] = toolMsg;
+        }
+        _updateSessionState(msgSessionId, messages: list);
+        _scrollToBottom();
+      } else if (type == 'message') {
+        final list = List<Map<String, dynamic>>.from(_sessionMessages[msgSessionId] ?? []);
+        list.add({
+          'sender': data['sender'] ?? 'agent',
+          'text': data['text'] ?? ''
+        });
+        _updateSessionState(msgSessionId, messages: list, status: 'Idle');
+        if (msgSessionId == _sessionId) {
+          setState(() {
+            _inChatView = true;
+          });
+        }
+        _scrollToBottom();
+      } else if (type == 'confirm') {
+        final conf = {
+          'tool': data['tool'] ?? '',
+          'arguments': data['arguments'] ?? {},
+          'risk': data['risk'] ?? 'safe'
+        };
+        _updateSessionState(msgSessionId, pendingConfirmation: conf, status: 'Idle');
+        _scrollToBottom();
+      } else if (type == 'notification') {
+        final title = data['title'] ?? 'Notification';
+        final message = data['message'] ?? '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.green),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      Text(message, style: const TextStyle(fontSize: 11)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } else if (type == 'error') {
+        final list = List<Map<String, dynamic>>.from(_sessionMessages[msgSessionId] ?? []);
+        list.add({
+          'sender': 'system',
+          'text': data['error'] ?? 'An unknown error occurred.'
+        });
+        _updateSessionState(msgSessionId, messages: list, status: 'Error');
+        _scrollToBottom();
+      }
     } catch (e) {
       // Fallback: if output is not JSON, render it as a log message
-      setState(() {
-        _messages.add({
-          'sender': 'system',
-          'text': line
-        });
-        _scrollToBottom();
+      final list = List<Map<String, dynamic>>.from(_sessionMessages[_sessionId] ?? []);
+      list.add({
+        'sender': 'system',
+        'text': line
       });
+      _updateSessionState(_sessionId, messages: list);
+      _scrollToBottom();
     }
   }
 
   void _handleCliError(dynamic err) {
-    setState(() {
-      _status = 'Error';
-      _messages.add({
-        'sender': 'system',
-        'text': 'Stream error occurred: $err'
-      });
-      _scrollToBottom();
+    final list = List<Map<String, dynamic>>.from(_sessionMessages[_sessionId] ?? []);
+    list.add({
+      'sender': 'system',
+      'text': 'Stream error occurred: $err'
     });
+    _updateSessionState(_sessionId, messages: list, status: 'Error');
+    _scrollToBottom();
   }
 
   void _handleCliDone() {
-    setState(() {
-      _status = 'Disconnected';
-      _messages.add({
-        'sender': 'system',
-        'text': 'CloudAgent backend process terminated.'
-      });
-      _scrollToBottom();
+    final list = List<Map<String, dynamic>>.from(_sessionMessages[_sessionId] ?? []);
+    list.add({
+      'sender': 'system',
+      'text': 'CloudAgent backend process terminated.'
     });
+    _updateSessionState(_sessionId, messages: list, status: 'Disconnected');
+    _scrollToBottom();
   }
 
   void _sendMessage() {
     final text = _messageController.text.trim();
     if (text.isEmpty || _webSocketChannel == null) return;
 
+    final list = List<Map<String, dynamic>>.from(_sessionMessages[_sessionId] ?? []);
+    list.add({
+      'sender': 'user',
+      'text': text
+    });
+    _updateSessionState(_sessionId, messages: list);
+    
     setState(() {
-      _messages.add({
-        'sender': 'user',
-        'text': text
-      });
       _messageController.clear();
       _suggestedCommands = [];
       _inChatView = true;
@@ -359,6 +507,14 @@ class _MainLayoutState extends State<MainLayout> {
     _webSocketChannel!.sink.add(jsonEncode({
       'type': 'message',
       'text': text
+    }));
+  }
+
+  void _stopMessageExecution() {
+    if (_webSocketChannel == null || _sessionId.isEmpty) return;
+    _webSocketChannel!.sink.add(jsonEncode({
+      'type': 'stop_session',
+      'sessionId': _sessionId,
     }));
   }
 
@@ -392,8 +548,10 @@ class _MainLayoutState extends State<MainLayout> {
       } else if (cmd == '/clear') {
         _messageController.clear();
         _suggestedCommands = [];
-        _messages.clear();
-        _messages.add({'sender': 'system', 'text': 'Chat history cleared locally.'});
+        final list = List<Map<String, dynamic>>.from(_sessionMessages[_sessionId] ?? []);
+        list.clear();
+        list.add({'sender': 'system', 'text': 'Chat history cleared locally.'});
+        _updateSessionState(_sessionId, messages: list);
         _inChatView = false;
       } else if (cmd == '/sheets') {
         _suggestedCommands = [
@@ -471,6 +629,16 @@ class _MainLayoutState extends State<MainLayout> {
 
   void _switchSession(String targetSessionId) {
     if (_webSocketChannel == null) return;
+    setState(() {
+      _sessionId = targetSessionId;
+      _messages.clear();
+      _messages.addAll(_sessionMessages[targetSessionId] ?? []);
+      _status = _sessionStatuses[targetSessionId] ?? 'Idle';
+      _activeTool = _sessionActiveTools[targetSessionId] ?? '';
+      _toolThought = _sessionToolThoughts[targetSessionId] ?? '';
+      _pendingConfirmation = _sessionConfirmations[targetSessionId];
+      _inChatView = _messages.isNotEmpty;
+    });
     _webSocketChannel!.sink.add(jsonEncode({
       'type': 'switch_session',
       'sessionId': targetSessionId,
@@ -884,6 +1052,20 @@ class _MainLayoutState extends State<MainLayout> {
                           color: isDark ? Colors.grey[300] : Colors.grey[800],
                         ),
                       ),
+                      const SizedBox(width: 16),
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _inChatView = false;
+                          });
+                        },
+                        icon: const Icon(Icons.home_rounded, size: 18),
+                        label: const Text('Home'),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          foregroundColor: isDark ? Colors.grey[350] : Colors.grey[700],
+                        ),
+                      ),
                       const Spacer(),
                       if (_status == 'Thinking')
                         Container(
@@ -1005,6 +1187,11 @@ class _MainLayoutState extends State<MainLayout> {
                                       final msg = _messages[index];
                                       final isUser = msg['sender'] == 'user';
                                       final isSystem = msg['sender'] == 'system';
+                                      final isTool = msg['sender'] == 'tool';
+                                      
+                                      if (isTool) {
+                                        return _buildToolLogWidget(msg);
+                                      }
                                       
                                       if (isSystem) {
                                         return Padding(
@@ -1134,7 +1321,7 @@ class _MainLayoutState extends State<MainLayout> {
                             controller: _messageController,
                             onChanged: _onInputChanged,
                             onSubmitted: (_) => _sendMessage(),
-                            enabled: _status != 'Connecting' && _status != 'Running Tool' && _pendingConfirmation == null,
+                            enabled: _status != 'Connecting' && _pendingConfirmation == null,
                             decoration: InputDecoration(
                               hintText: _pendingConfirmation != null 
                                   ? 'Please confirm or deny the requested action above...'
@@ -1148,13 +1335,18 @@ class _MainLayoutState extends State<MainLayout> {
                         ),
                       ),
                       const SizedBox(width: 14),
-                      FloatingActionButton(
-                        onPressed: _sendMessage,
-                        elevation: 2,
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        child: const Icon(Icons.send_rounded, size: 20),
+                      Builder(
+                        builder: (context) {
+                          final isRunning = _status == 'Thinking' || _status == 'Running Tool';
+                          return FloatingActionButton(
+                            onPressed: isRunning ? _stopMessageExecution : _sendMessage,
+                            elevation: 2,
+                            backgroundColor: isRunning ? Colors.red : Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            child: Icon(isRunning ? Icons.stop_rounded : Icons.send_rounded, size: 20),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -1163,6 +1355,117 @@ class _MainLayoutState extends State<MainLayout> {
             ),
           )
         ],
+      ),
+    );
+  }
+
+  Widget _buildToolLogWidget(Map<String, dynamic> msg) {
+    final meta = msg['meta'] ?? {};
+    final toolName = meta['name'] ?? '';
+    final arguments = meta['arguments'] ?? {};
+    final output = meta['output'] ?? '';
+    final status = meta['status'] ?? ''; // 'running', 'success', 'failed'
+    final isExpanded = meta['isExpanded'] ?? false;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    IconData statusIcon = Icons.help_outline_rounded;
+    Color statusColor = Colors.grey;
+    if (status == 'running') {
+      statusIcon = Icons.hourglass_empty_rounded;
+      statusColor = Colors.orange;
+    } else if (status == 'success') {
+      statusIcon = Icons.check_circle_outline_rounded;
+      statusColor = Colors.green;
+    } else if (status == 'failed') {
+      statusIcon = Icons.error_outline_rounded;
+      statusColor = Colors.red;
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        width: MediaQuery.of(context).size.width * 0.7,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E24) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? Colors.grey[900]! : Colors.grey[300]!,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: () {
+                setState(() {
+                  meta['isExpanded'] = !isExpanded;
+                });
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  children: [
+                    status == 'running'
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
+                          )
+                        : Icon(statusIcon, color: statusColor, size: 16),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Tool Run: $toolName',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                    Icon(
+                      isExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                      size: 18,
+                      color: Colors.grey,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (isExpanded)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black26 : const Color(0xFFF8F9FA),
+                  border: Border(
+                    top: BorderSide(color: isDark ? Colors.grey[900]! : Colors.grey[200]!),
+                  ),
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('ARGUMENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Text(
+                      jsonEncode(arguments),
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('LOG OUTPUT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Text(
+                      output,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                        color: status == 'failed' ? Colors.red : (isDark ? Colors.grey[300] : Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

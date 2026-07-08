@@ -496,17 +496,38 @@ function drawDashboard() {
   console.log(chalk.cyan(borderBottom));
 }
 
+export const activeRuns = new Map();
+
 export async function runAgentStepJSON(sessionId, userPrompt, outputHandler = (data) => console.log(JSON.stringify(data))) {
+  if (activeRuns.has(sessionId) && !activeRuns.get(sessionId)) {
+    activeRuns.delete(sessionId);
+    outputHandler({ type: 'status', sessionId, status: 'idle' });
+    outputHandler({ type: 'message', sessionId, sender: 'agent', text: 'Task execution stopped by user.' });
+    saveMessage(sessionId, 'assistant', 'Task execution stopped by user.');
+    return;
+  }
+  if (!activeRuns.has(sessionId)) {
+    activeRuns.set(sessionId, true);
+  }
+
   saveMessage(sessionId, 'user', userPrompt);
-  outputHandler({ type: 'status', status: 'thinking' });
+  outputHandler({ type: 'status', sessionId, status: 'thinking' });
   
   try {
     const history = getSessionMessages(sessionId);
     const tools = getToolsSchema(history);
 
     const response = await askAgent(history, tools, (modelName) => {
-      outputHandler({ type: 'status', status: 'thinking', model: modelName });
+      outputHandler({ type: 'status', sessionId, status: 'thinking', model: modelName });
     });
+
+    if (activeRuns.has(sessionId) && !activeRuns.get(sessionId)) {
+      activeRuns.delete(sessionId);
+      outputHandler({ type: 'status', sessionId, status: 'idle' });
+      outputHandler({ type: 'message', sessionId, sender: 'agent', text: 'Task execution stopped by user.' });
+      saveMessage(sessionId, 'assistant', 'Task execution stopped by user.');
+      return;
+    }
 
     if (response.tool) {
       saveMessage(sessionId, 'assistant', JSON.stringify({
@@ -515,16 +536,41 @@ export async function runAgentStepJSON(sessionId, userPrompt, outputHandler = (d
         arguments: response.arguments
       }));
 
-      outputHandler({ type: 'status', status: 'running_tool', tool: response.tool, thought: response.thought });
+      outputHandler({ type: 'status', sessionId, status: 'running_tool', tool: response.tool, thought: response.thought });
+      outputHandler({ 
+        type: 'tool_start', 
+        sessionId,
+        tool: response.tool, 
+        thought: response.thought, 
+        arguments: response.arguments 
+      });
 
       const toolResult = await executeTool(response.tool, response.arguments || {}, sessionId, true);
       
+      outputHandler({ 
+        type: 'tool_end', 
+        sessionId,
+        tool: response.tool, 
+        success: toolResult.success, 
+        output: toolResult.success ? toolResult.output : toolResult.error 
+      });
+
       if (toolResult.success) {
         saveMessage(sessionId, 'assistant', JSON.stringify({ 
           status: 'success', 
           tool: response.tool, 
           output: toolResult.output 
         }));
+
+        if (response.tool === 'tasks_update' && response.arguments && response.arguments.status === 'completed') {
+          const taskName = response.arguments.title || response.arguments.id || 'Task';
+          outputHandler({
+            type: 'notification',
+            sessionId,
+            title: 'Task Completed',
+            message: `"${taskName}" has been completed.`
+          });
+        }
 
         const ACTION_TOOLS = [
           'gmail_send',
@@ -567,8 +613,9 @@ export async function runAgentStepJSON(sessionId, userPrompt, outputHandler = (d
             const pathLine = lines.find(l => l.includes('Verified local download path:'));
             agentText = pathLine ? `File downloaded successfully!\n${pathLine}` : `File downloaded successfully!`;
           }
-          outputHandler({ type: 'message', sender: 'agent', text: agentText });
+          outputHandler({ type: 'message', sessionId, sender: 'agent', text: agentText });
           saveMessage(sessionId, 'assistant', agentText);
+          activeRuns.delete(sessionId);
           return;
         }
 
@@ -581,23 +628,27 @@ export async function runAgentStepJSON(sessionId, userPrompt, outputHandler = (d
         }));
         
         if (toolResult.error === 'Execution rejected by user') {
-          outputHandler({ type: 'message', sender: 'agent', text: 'Tool execution rejected by user.' });
+          outputHandler({ type: 'message', sessionId, sender: 'agent', text: 'Tool execution rejected by user.' });
+          activeRuns.delete(sessionId);
           return;
         }
         
         await runAgentStepJSON(sessionId, `Tool execution failed for ${response.tool}: ${toolResult.error} [System Instruction: The tool execution failed. Please report the error to the user. Do not start or trigger any other tools or tasks from earlier in the chat history unless the user explicitly requests them in a new prompt.]`, outputHandler);
       }
     } else if (response.text) {
-      outputHandler({ type: 'message', sender: 'agent', text: response.text });
+      outputHandler({ type: 'message', sessionId, sender: 'agent', text: response.text });
       saveMessage(sessionId, 'assistant', response.text);
+      activeRuns.delete(sessionId);
     } else if (response.thought) {
       saveMessage(sessionId, 'assistant', JSON.stringify({ thought: response.thought }));
       await runAgentStepJSON(sessionId, "You only provided a 'thought'. Please output a valid JSON containing either a 'tool' to execute or a 'text' response for the user.", outputHandler);
     } else {
-      outputHandler({ type: 'error', error: 'Received invalid or empty response format from AI.' });
+      outputHandler({ type: 'error', sessionId, error: 'Received invalid or empty response format from AI.' });
+      activeRuns.delete(sessionId);
     }
   } catch (error) {
-    outputHandler({ type: 'error', error: error.message });
+    outputHandler({ type: 'error', sessionId, error: error.message });
+    activeRuns.delete(sessionId);
   }
 }
 

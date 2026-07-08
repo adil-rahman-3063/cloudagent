@@ -36,7 +36,7 @@ export async function askAgent(chatHistory, tools, onModelAttempt) {
   
   // Inject current date/time context into the latest user message to prevent recency/resume bias
   const now = new Date();
-  const timeContext = `\n\n[System Context: The current local date and time is ${now.toDateString()} ${now.toTimeString()}. Use this current date/time to determine relative date references like "today", "tomorrow", "yesterday", or "next week".]`;
+  const timeContext = `\n\n[System Context: The current local date and time is ${now.toLocaleString()} (${now.toDateString()} ${now.toTimeString()}). Use this current date/time to determine relative date references like "today", "tomorrow", "yesterday", or "next week".]`;
 
   let historyWithTime = [];
   const lastUserIdx = chatHistory.findLastIndex(m => m.role === 'user');

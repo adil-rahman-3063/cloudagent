@@ -1,5 +1,5 @@
 import { WebSocketServer } from 'ws';
-import { runAgentStepJSON, getHelpText } from './cli.js';
+import { runAgentStepJSON, getHelpText, activeRuns } from './cli.js';
 import { 
   initDatabase, 
   createSession, 
@@ -120,34 +120,69 @@ export function startServer() {
             widgetsEnabled: config.widgets_enabled !== false,
             theme: config.theme || 'system'
           }));
+        } else if (input.type === 'stop_session') {
+          activeRuns.set(input.sessionId, false);
+          ws.send(JSON.stringify({ type: 'status', sessionId: input.sessionId, status: 'idle' }));
         } else if (input.type === 'switch_session') {
           sessionId = input.sessionId;
           const history = getSessionMessages(sessionId);
-          const formattedHistory = history.map(h => {
+          
+          const formattedHistory = [];
+          for (let i = 0; i < history.length; i++) {
+            const h = history[i];
+            try {
+              const parsed = JSON.parse(h.content);
+              if (parsed.tool && !parsed.status) {
+                // This is a tool call start. Let's look ahead for the result
+                let output = 'Running...';
+                let status = 'running';
+                if (i + 1 < history.length) {
+                  try {
+                    const nextParsed = JSON.parse(history[i + 1].content);
+                    if (nextParsed.tool === parsed.tool && (nextParsed.status === 'success' || nextParsed.status === 'failed')) {
+                      output = nextParsed.status === 'success' ? nextParsed.output : nextParsed.error;
+                      status = nextParsed.status;
+                      i++; // skip next since we merged it
+                    }
+                  } catch (err) {}
+                }
+                formattedHistory.push({
+                  sender: 'tool',
+                  text: `Executed ${parsed.tool}`,
+                  meta: {
+                    type: 'tool',
+                    name: parsed.tool,
+                    arguments: parsed.arguments,
+                    output: output,
+                    status: status,
+                    isExpanded: false // default collapsed in history
+                  }
+                });
+                continue;
+              }
+            } catch (e) {}
+
+            // Process normally
             let contentText = h.content;
             try {
               const parsed = JSON.parse(h.content);
               if (parsed.text) {
                 contentText = parsed.text;
-              } else if (parsed.tool) {
-                if (parsed.thought) {
-                  contentText = `*Thinking:* ${parsed.thought}\n\n*Running tool:* \`${parsed.tool}\``;
-                } else {
-                  contentText = `*Running tool:* \`${parsed.tool}\``;
-                }
               } else if (parsed.status === 'success') {
                 contentText = tryFormatSuccess(parsed.tool, parsed.output);
+              } else if (parsed.status === 'failed') {
+                contentText = `Tool execution failed: ${parsed.error}`;
               }
             } catch (e) {}
 
-            if (contentText.startsWith('{') && contentText.includes('"tool"')) return null;
-            if (contentText.includes('[System Instruction:')) return null;
+            if (contentText.startsWith('{') && contentText.includes('"tool"')) continue;
+            if (contentText.includes('[System Instruction:')) continue;
 
-            return {
+            formattedHistory.push({
               sender: h.role === 'user' ? 'user' : (h.role === 'assistant' ? 'agent' : 'system'),
               text: contentText
-            };
-          }).filter(Boolean);
+            });
+          }
 
           ws.send(JSON.stringify({ type: 'history', sessionId, messages: formattedHistory }));
         } else if (input.type === 'new_session') {
