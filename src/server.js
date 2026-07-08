@@ -14,6 +14,7 @@ import { readConfig, writeConfig } from './config.js';
 import { tryFormatSuccess } from './formatter.js';
 import { getDiagnosticsStatus } from './doctor.js';
 import { getDashboardData } from './dashboard.js';
+import { getActiveProvider } from './agent.js';
 import { execSync } from 'child_process';
 
 const PORT = process.env.PORT || 3020;
@@ -123,6 +124,37 @@ export function startServer() {
         } else if (input.type === 'stop_session') {
           activeRuns.set(input.sessionId, false);
           ws.send(JSON.stringify({ type: 'status', sessionId: input.sessionId, status: 'idle' }));
+        } else if (input.type === 'ai_rename_session') {
+          const sId = input.sessionId;
+          const messages = getSessionMessages(sId);
+          if (messages.length > 0) {
+            try {
+              const userPrompts = messages.filter(m => m.role === 'user').map(m => m.content);
+              if (userPrompts.length > 0) {
+                const provider = getActiveProvider();
+                const prompt = `Based on the following user prompts, please generate a short, clean, descriptive title for this conversation. Output ONLY the title (maximum 4-5 words, no quotes, no markdown, no punctuation).
+Prompts:
+${userPrompts.join('\n')}
+Title:`;
+                const aiResponse = await provider.generateToolCall([{ role: 'user', content: prompt }], []);
+                const cleanTitle = (aiResponse.text || aiResponse.thought || 'New Chat').trim().replace(/['"“”]/g, '');
+                updateSessionName(sId, cleanTitle);
+              }
+            } catch (e) {
+              console.error('Error auto-renaming session:', e.message);
+            }
+          }
+          const freshSessions = getSessions();
+          ws.send(JSON.stringify({
+            type: 'session',
+            sessionId,
+            workspace: process.cwd(),
+            gwsUserEmail,
+            sessions: freshSessions,
+            activeModel: config.active_model,
+            widgetsEnabled: config.widgets_enabled !== false,
+            theme: config.theme || 'system'
+          }));
         } else if (input.type === 'switch_session') {
           sessionId = input.sessionId;
           const history = getSessionMessages(sessionId);

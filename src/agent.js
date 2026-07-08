@@ -37,7 +37,7 @@ export async function askAgent(chatHistory, tools, onModelAttempt) {
   // Inject current date/time context into the latest user message to prevent recency/resume bias
   const now = new Date();
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const timeContext = `\n\n[System Context: The current local date and time is ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} ${now.toLocaleTimeString('en-US')}. Timezone: ${timeZone} (Offset: ${-now.getTimezoneOffset()} minutes from UTC). Use this unambiguous date and time to accurately compute relative dates such as "today" (which is ${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}), "tomorrow", "yesterday", etc. Do not confuse day and month.]`;
+  const timeContext = `\n\n[System Context: The current local date and time is ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} ${now.toLocaleTimeString('en-US')}. Timezone: ${timeZone} (Offset: ${-now.getTimezoneOffset()} minutes from UTC). Note: 'Z' at the end of a timestamp represents UTC/Zulu time. When creating Google Calendar events or Tasks, compute the UTC time correctly using the timezone offset. For example, if the user says "tomorrow at 9:00 AM" and the offset is +330 minutes (UTC+5:30), 9:00 AM local time corresponds to 3:30 AM UTC (calculated as 9:00 AM minus 5:30). Therefore, the correct ISO string to pass to the tool is '2026-07-09T03:30:00Z'. Ensure you do this offset calculation correctly so the events are scheduled at the correct local time!]`;
 
   let historyWithTime = [];
   const lastUserIdx = chatHistory.findLastIndex(m => m.role === 'user');

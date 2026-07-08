@@ -397,6 +397,20 @@ class _MainLayoutState extends State<MainLayout> {
         }
         _updateSessionState(msgSessionId, messages: list);
         _scrollToBottom();
+      } else if (type == 'tool_log') {
+        final list = List<Map<String, dynamic>>.from(_sessionMessages[msgSessionId] ?? []);
+        final toolIdx = list.lastIndexWhere((m) => m['sender'] == 'tool' && m['meta']?['name'] == data['tool']);
+        if (toolIdx != -1) {
+          final toolMsg = Map<String, dynamic>.from(list[toolIdx]);
+          final meta = Map<String, dynamic>.from(toolMsg['meta'] ?? {});
+          final currentOutput = meta['output']?.toString() ?? '';
+          final newOutput = (currentOutput == 'Running...') ? data['log'] : '$currentOutput\n${data['log']}';
+          meta['output'] = newOutput;
+          toolMsg['meta'] = meta;
+          list[toolIdx] = toolMsg;
+        }
+        _updateSessionState(msgSessionId, messages: list);
+        _scrollToBottom();
       } else if (type == 'message') {
         final list = List<Map<String, dynamic>>.from(_sessionMessages[msgSessionId] ?? []);
         list.add({
@@ -666,6 +680,17 @@ class _MainLayoutState extends State<MainLayout> {
       'type': 'rename_session',
       'sessionId': targetSessionId,
       'name': newName,
+    }));
+  }
+
+  void _aiRenameSession(String targetSessionId) {
+    if (_webSocketChannel == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Auto-renaming conversation using AI...'), duration: Duration(seconds: 2)),
+    );
+    _webSocketChannel!.sink.add(jsonEncode({
+      'type': 'ai_rename_session',
+      'sessionId': targetSessionId,
     }));
   }
 
@@ -951,8 +976,8 @@ class _MainLayoutState extends State<MainLayout> {
                                     icon: Icon(Icons.edit_rounded, size: 13, color: isDark ? Colors.grey[500] : Colors.grey[600]),
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(),
-                                    onPressed: () => _showRenameDialog(s['id'], name),
-                                    tooltip: 'Rename Chat',
+                                    onPressed: () => _aiRenameSession(s['id']),
+                                    tooltip: 'Rename Chat by AI',
                                   ),
                                   const SizedBox(width: 4),
                                   PopupMenuButton<String>(

@@ -545,7 +545,18 @@ export async function runAgentStepJSON(sessionId, userPrompt, outputHandler = (d
         arguments: response.arguments 
       });
 
+      global.gwsLogCallback = (line) => {
+        outputHandler({
+          type: 'tool_log',
+          sessionId,
+          tool: response.tool,
+          log: line
+        });
+      };
+
       const toolResult = await executeTool(response.tool, response.arguments || {}, sessionId, true);
+      
+      delete global.gwsLogCallback;
       
       outputHandler({ 
         type: 'tool_end', 
