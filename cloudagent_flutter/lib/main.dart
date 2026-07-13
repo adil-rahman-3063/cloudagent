@@ -1056,7 +1056,7 @@ class _MainLayoutState extends State<MainLayout> {
                   child: Row(
                     children: [
                       const Text(
-                        'v1.1',
+                        'v2.0',
                         style: TextStyle(fontSize: 11, color: Colors.grey),
                       ),
                       const Spacer(),
