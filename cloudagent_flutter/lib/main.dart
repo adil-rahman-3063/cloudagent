@@ -2050,6 +2050,99 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
+  void _showTimezoneSearchDialog(BuildContext context, String currentTz, Function(String) onSelected) {
+    final Map<String, String> tzOptions = {
+      'GMT/UTC (Greenwich Mean Time)': 'UTC',
+      'India Standard Time (IST - Asia/Kolkata)': 'Asia/Kolkata',
+      'US Eastern Time (EST/EDT - America/New_York)': 'America/New_York',
+      'US Central Time (CST/CDT - America/Chicago)': 'America/Chicago',
+      'US Mountain Time (MST/MDT - America/Denver)': 'America/Denver',
+      'US Pacific Time (PST/PDT - America/Los_Angeles)': 'America/Los_Angeles',
+      'UK Time (GMT/BST - Europe/London)': 'Europe/London',
+      'Central European Time (CET/CEST - Europe/Paris)': 'Europe/Paris',
+      'Japan Standard Time (JST - Asia/Tokyo)': 'Asia/Tokyo',
+      'China Standard Time (CST - Asia/Shanghai)': 'Asia/Shanghai',
+      'Singapore Time (SGT - Asia/Singapore)': 'Asia/Singapore',
+      'Australia Eastern Time (AEST/AEDT - Australia/Sydney)': 'Australia/Sydney',
+      'Gulf Standard Time (GST - Asia/Dubai)': 'Asia/Dubai',
+      'Saudi Arabia (Asia/Riyadh)': 'Asia/Riyadh',
+      'South Africa (Africa/Johannesburg)': 'Africa/Johannesburg',
+      'Brazil Time (America/Sao_Paulo)': 'America/Sao_Paulo',
+      'Hong Kong (Asia/Hong_Kong)': 'Asia/Hong_Kong',
+      'New Zealand (Pacific/Auckland)': 'Pacific/Auckland',
+      'Korea Standard Time (Asia/Seoul)': 'Asia/Seoul',
+      'Russia/Moscow (Europe/Moscow)': 'Europe/Moscow',
+    };
+
+    if (currentTz.isNotEmpty && !tzOptions.containsValue(currentTz)) {
+      tzOptions['Custom/Detected ($currentTz)'] = currentTz;
+    }
+
+    String searchQuery = '';
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final filtered = tzOptions.entries.where((e) {
+              final term = searchQuery.toLowerCase();
+              return e.key.toLowerCase().contains(term) || e.value.toLowerCase().contains(term);
+            }).toList();
+
+            return AlertDialog(
+              title: const Text('Search Timezone / Location', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              content: SizedBox(
+                width: 400,
+                height: 350,
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: const InputDecoration(
+                        hintText: 'Search timezone or country...',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (val) {
+                        setDialogState(() {
+                          searchQuery = val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final entry = filtered[index];
+                          final isSelected = entry.value == currentTz;
+                          return ListTile(
+                            title: Text(entry.key, style: const TextStyle(fontSize: 13)),
+                            subtitle: Text(entry.value, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                            trailing: isSelected ? const Icon(Icons.check, color: Colors.green, size: 18) : null,
+                            onTap: () {
+                              onSelected(entry.value);
+                              Navigator.pop(context);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                )
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showSettingsDialog() {
     if (_configData == null) {
       _requestConfig();
@@ -2118,15 +2211,27 @@ class _MainLayoutState extends State<MainLayout> {
 
                       const Text('Timezone / Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                       const SizedBox(height: 8),
-                      TextFormField(
-                        initialValue: timezone,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: 'e.g. Asia/Kolkata or America/New_York',
-                        ),
-                        onChanged: (val) {
-                          timezone = val.trim();
+                      InkWell(
+                        onTap: () {
+                          _showTimezoneSearchDialog(context, timezone, (selectedTz) {
+                            setModalState(() {
+                              timezone = selectedTz;
+                            });
+                          });
                         },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            suffixIcon: Icon(Icons.arrow_drop_down),
+                          ),
+                          child: Text(
+                            timezone.isEmpty ? 'Select Timezone' : timezone,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: timezone.isEmpty ? Colors.grey : null,
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 16),
 
