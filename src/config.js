@@ -68,6 +68,7 @@ export function initConfigDirs() {
 const DEFAULT_CONFIG = {
   active_provider: 'openrouter',
   active_model: 'google/gemini-2.5-flash', // Default placeholder model
+  timezone: '',
   providers: {
     openrouter: { api_key: '' },
     openai: { api_key: '' },
@@ -79,12 +80,18 @@ const DEFAULT_CONFIG = {
 export function readConfig() {
   initConfigDirs();
   if (!fs.existsSync(CONFIG_FILE)) {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(DEFAULT_CONFIG, null, 2), 'utf8');
-    return DEFAULT_CONFIG;
+    const dConf = { ...DEFAULT_CONFIG, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(dConf, null, 2), 'utf8');
+    return dConf;
   }
   try {
     const data = fs.readFileSync(CONFIG_FILE, 'utf8');
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    if (!parsed.timezone) {
+      parsed.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      fs.writeFileSync(CONFIG_FILE, JSON.stringify(parsed, null, 2), 'utf8');
+    }
+    return parsed;
   } catch (error) {
     return DEFAULT_CONFIG;
   }

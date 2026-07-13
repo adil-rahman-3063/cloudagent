@@ -1801,21 +1801,38 @@ class _MainLayoutState extends State<MainLayout> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Welcome to CloudAgent',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Here is a quick overview of your Google Workspace status:',
-            style: TextStyle(
-              fontSize: 13.5,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome to CloudAgent',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Here is a quick overview of your Google Workspace status:',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                onPressed: _isLoadingDashboard ? null : _requestDashboard,
+                tooltip: 'Refresh Workspace Status',
+              ),
+            ],
           ),
           const SizedBox(height: 24),
           
@@ -1903,6 +1920,7 @@ class _MainLayoutState extends State<MainLayout> {
       children: emails.map((item) {
         final subject = item['subject'] ?? 'No Subject';
         final from = item['from'] ?? 'Unknown Sender';
+        final date = item['date']?.toString() ?? '';
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 6.0),
           child: Column(
@@ -1915,11 +1933,23 @@ class _MainLayoutState extends State<MainLayout> {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
-              Text(
-                from,
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      from,
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (date.isNotEmpty)
+                    Text(
+                      date,
+                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
+                ],
               ),
               const Divider(height: 12),
             ],
@@ -1976,21 +2006,38 @@ class _MainLayoutState extends State<MainLayout> {
     return Column(
       children: tasks.map((item) {
         final title = item['title'] ?? 'Task';
+        final due = item['due']?.toString() ?? '';
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 6.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.circle_outlined, size: 12, color: Colors.grey),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2.0),
+                    child: Icon(Icons.circle_outlined, size: 12, color: Colors.grey),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12.5),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12.5),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (due.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            'Due: $due',
+                            style: const TextStyle(fontSize: 10.5, color: Colors.grey),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -2017,6 +2064,7 @@ class _MainLayoutState extends State<MainLayout> {
     String activeModel = _configData!['active_model'] ?? '';
     bool widgetsEnabled = _widgetsEnabled;
     String theme = _themeMode;
+    String timezone = _configData!['timezone'] ?? '';
 
     final keyControllers = <String, TextEditingController>{};
     for (final prov in providers) {
@@ -2064,6 +2112,20 @@ class _MainLayoutState extends State<MainLayout> {
                         ),
                         onChanged: (val) {
                           activeModel = val.trim();
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      const Text('Timezone / Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        initialValue: timezone,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          hintText: 'e.g. Asia/Kolkata or America/New_York',
+                        ),
+                        onChanged: (val) {
+                          timezone = val.trim();
                         },
                       ),
                       const SizedBox(height: 16),
@@ -2145,6 +2207,7 @@ class _MainLayoutState extends State<MainLayout> {
                       'activeModel': activeModel,
                       'widgetsEnabled': widgetsEnabled,
                       'theme': theme,
+                      'timezone': timezone,
                       'providers': keysPayload,
                     });
 

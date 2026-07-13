@@ -125,7 +125,8 @@ export function startServer() {
           const diagnostics = await getDiagnosticsStatus();
           ws.send(JSON.stringify({ type: 'diagnostics', ...diagnostics }));
         } else if (input.type === 'get_dashboard') {
-          const dashboardData = await getDashboardData();
+          const config = readConfig();
+          const dashboardData = await getDashboardData(config.timezone);
           ws.send(JSON.stringify({ type: 'dashboard', data: dashboardData }));
         } else if (input.type === 'get_config') {
           const config = readConfig();
@@ -136,6 +137,7 @@ export function startServer() {
           if (input.activeModel) config.active_model = input.activeModel;
           if (input.widgetsEnabled !== undefined) config.widgets_enabled = input.widgetsEnabled;
           if (input.theme) config.theme = input.theme;
+          if (input.timezone !== undefined) config.timezone = input.timezone;
           if (input.providers) {
             for (const [prov, provData] of Object.entries(input.providers)) {
               if (!config.providers[prov]) config.providers[prov] = {};
