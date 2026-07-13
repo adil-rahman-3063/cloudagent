@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import { readConfig } from './config.js';
 
 function truncate(str, max = 40) {
   if (!str) return '';
@@ -103,14 +104,48 @@ export function tryFormatDrive(stdout) {
   }
 }
 
+export function formatLocalTime(isoString, timezone) {
+  if (!isoString) return '';
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return isoString;
+    
+    const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(isoString) || (isoString.includes('T00:00:00') && isoString.endsWith('Z'));
+    const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    if (isDateOnly) {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }).format(date);
+    }
+    
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).format(date);
+  } catch (e) {
+    return isoString;
+  }
+}
+
 export function tryFormatCalendar(stdout) {
   try {
+    const config = readConfig();
+    const tz = config.timezone;
     const data = JSON.parse(stdout);
     const events = data.events || [];
     events.sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
     const headers = ['Time', 'Calendar', 'Summary'];
     const rows = events.map(e => [
-      truncate(e.start, 25),
+      formatLocalTime(e.start, tz),
       truncate(e.calendar, 20),
       truncate(e.summary, 35)
     ]);
@@ -122,6 +157,8 @@ export function tryFormatCalendar(stdout) {
 
 export function tryFormatTasks(stdout) {
   try {
+    const config = readConfig();
+    const tz = config.timezone;
     const data = JSON.parse(stdout);
     const items = data.items || [];
     items.sort((a, b) => {
@@ -131,7 +168,7 @@ export function tryFormatTasks(stdout) {
     });
     const headers = ['Due Date', 'Title', 'Status', 'ID'];
     const rows = items.map(t => [
-      truncate(t.due ? t.due.split('T')[0] : 'No Due Date', 15),
+      t.due ? formatLocalTime(t.due, tz) : 'No Due Date',
       truncate(t.title, 40),
       truncate(t.status, 15),
       t.id || ''

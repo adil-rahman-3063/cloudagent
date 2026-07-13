@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:flutter/services.dart';
 
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 
@@ -1268,64 +1269,101 @@ class _MainLayoutState extends State<MainLayout> {
 
                                       return Align(
                                         alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                                        child: Container(
-                                          constraints: BoxConstraints(
-                                            maxWidth: MediaQuery.of(context).size.width * 0.65,
-                                          ),
-                                          margin: const EdgeInsets.symmetric(vertical: 8),
-                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                                          decoration: BoxDecoration(
-                                            gradient: isUser
-                                                ? LinearGradient(
-                                                    colors: [
-                                                      Theme.of(context).colorScheme.primary,
-                                                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
-                                                    ],
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                  )
-                                                : null,
-                                            color: isUser
-                                                ? null
-                                                : (isDark ? const Color(0xFF1E1E24) : Colors.white),
-                                            borderRadius: BorderRadius.only(
-                                              topLeft: const Radius.circular(20),
-                                              topRight: const Radius.circular(20),
-                                              bottomLeft: Radius.circular(isUser ? 20 : 4),
-                                              bottomRight: Radius.circular(isUser ? 4 : 20),
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                                                blurRadius: 6,
-                                                offset: const Offset(0, 3),
-                                              )
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          children: [
+                                            if (!isUser) ...[
+                                              IconButton(
+                                                icon: Icon(Icons.copy_rounded, size: 13, color: isDark ? Colors.grey[500] : Colors.grey[600]),
+                                                tooltip: 'Copy Message',
+                                                padding: const EdgeInsets.all(4),
+                                                constraints: const BoxConstraints(),
+                                                onPressed: () {
+                                                  Clipboard.setData(ClipboardData(text: msg['text'] ?? ''));
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(content: Text('Message copied to clipboard!'), duration: Duration(seconds: 1)),
+                                                  );
+                                                },
+                                              ),
+                                              const SizedBox(width: 6),
                                             ],
-                                            border: isUser 
-                                                ? null 
-                                                : Border.all(color: isDark ? Colors.grey[900]! : Colors.grey[200]!),
-                                          ),
-                                          child: MarkdownBody(
-                                            data: msg['text'] ?? '',
-                                            selectable: true,
-                                            styleSheet: MarkdownStyleSheet(
-                                              p: TextStyle(
-                                                color: isUser ? Colors.white : (isDark ? Colors.grey[200] : Colors.black87),
-                                                fontSize: 14.5,
-                                                height: 1.45,
+                                            Container(
+                                              constraints: BoxConstraints(
+                                                maxWidth: MediaQuery.of(context).size.width * 0.65,
                                               ),
-                                              code: TextStyle(
-                                                fontFamily: 'monospace',
-                                                backgroundColor: isUser 
-                                                    ? Colors.white.withValues(alpha: 0.15) 
-                                                    : (isDark ? Colors.black26 : Colors.grey[200]),
-                                                fontSize: 13,
+                                              margin: const EdgeInsets.symmetric(vertical: 8),
+                                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                              decoration: BoxDecoration(
+                                                gradient: isUser
+                                                    ? LinearGradient(
+                                                        colors: [
+                                                          Theme.of(context).colorScheme.primary,
+                                                          Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                                                        ],
+                                                        begin: Alignment.topLeft,
+                                                        end: Alignment.bottomRight,
+                                                      )
+                                                    : null,
+                                                color: isUser
+                                                    ? null
+                                                    : (isDark ? const Color(0xFF1E1E24) : Colors.white),
+                                                borderRadius: BorderRadius.only(
+                                                  topLeft: const Radius.circular(20),
+                                                  topRight: const Radius.circular(20),
+                                                  bottomLeft: Radius.circular(isUser ? 20 : 4),
+                                                  bottomRight: Radius.circular(isUser ? 4 : 20),
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                                                    blurRadius: 6,
+                                                    offset: const Offset(0, 3),
+                                                  )
+                                                ],
+                                                border: isUser 
+                                                    ? null 
+                                                    : Border.all(color: isDark ? Colors.grey[900]! : Colors.grey[200]!),
                                               ),
-                                              listBullet: TextStyle(
-                                                color: isUser ? Colors.white : (isDark ? Colors.grey[300] : Colors.black87),
+                                              child: MarkdownBody(
+                                                data: msg['text'] ?? '',
+                                                selectable: true,
+                                                styleSheet: MarkdownStyleSheet(
+                                                  p: TextStyle(
+                                                    color: isUser ? Colors.white : (isDark ? Colors.grey[200] : Colors.black87),
+                                                    fontSize: 14.5,
+                                                    height: 1.45,
+                                                  ),
+                                                  code: TextStyle(
+                                                    fontFamily: 'monospace',
+                                                    backgroundColor: isUser 
+                                                        ? Colors.white.withValues(alpha: 0.15) 
+                                                        : (isDark ? Colors.black26 : Colors.grey[200]),
+                                                    fontSize: 13,
+                                                  ),
+                                                  listBullet: TextStyle(
+                                                    color: isUser ? Colors.white : (isDark ? Colors.grey[300] : Colors.black87),
+                                                  ),
+                                                ),
                                               ),
                                             ),
-                                          ),
+                                            if (isUser) ...[
+                                              const SizedBox(width: 6),
+                                              IconButton(
+                                                icon: Icon(Icons.copy_rounded, size: 13, color: isDark ? Colors.grey[500] : Colors.grey[600]),
+                                                tooltip: 'Copy Message',
+                                                padding: const EdgeInsets.all(4),
+                                                constraints: const BoxConstraints(),
+                                                onPressed: () {
+                                                  Clipboard.setData(ClipboardData(text: msg['text'] ?? ''));
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(content: Text('Message copied to clipboard!'), duration: Duration(seconds: 1)),
+                                                  );
+                                                },
+                                              ),
+                                            ],
+                                          ],
                                         ),
                                       );
                                     },
