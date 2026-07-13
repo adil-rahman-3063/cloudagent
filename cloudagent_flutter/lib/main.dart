@@ -78,6 +78,8 @@ class _MainLayoutState extends State<MainLayout> {
   List<Map<String, dynamic>> _sessions = [];
   Map<String, dynamic>? _diagnostics;
   bool _inChatView = false;
+  int _reconnectAttempts = 0;
+  bool _isReconnecting = false;
   
   // Concurrent session maps
   final Map<String, List<Map<String, dynamic>>> _sessionMessages = {};
@@ -308,6 +310,7 @@ class _MainLayoutState extends State<MainLayout> {
         
         setState(() {
           _status = 'Idle';
+          _reconnectAttempts = 0; // reset attempts on success
           final sessionsData = data['sessions'];
           if (sessionsData is List) {
             _sessions = List<Map<String, dynamic>>.from(sessionsData);
@@ -488,6 +491,7 @@ class _MainLayoutState extends State<MainLayout> {
     });
     _updateSessionState(_sessionId, messages: list, status: 'Error');
     _scrollToBottom();
+    _attemptAutoReconnect();
   }
 
   void _handleCliDone() {
@@ -498,6 +502,27 @@ class _MainLayoutState extends State<MainLayout> {
     });
     _updateSessionState(_sessionId, messages: list, status: 'Disconnected');
     _scrollToBottom();
+    _attemptAutoReconnect();
+  }
+
+  void _attemptAutoReconnect() {
+    if (_isReconnecting) return;
+    if (_reconnectAttempts >= 5) {
+      debugPrint('Max auto-reconnect attempts reached.');
+      return;
+    }
+    
+    _isReconnecting = true;
+    _reconnectAttempts++;
+    debugPrint('Attempting auto-reconnect $_reconnectAttempts/5 in 2 seconds...');
+    
+    Future.delayed(const Duration(seconds: 2), () {
+      _isReconnecting = false;
+      // Only reconnect if we are still disconnected or in error state
+      if (_status == 'Disconnected' || _status == 'Error') {
+        _startProcess();
+      }
+    });
   }
 
   void _sendMessage() {
